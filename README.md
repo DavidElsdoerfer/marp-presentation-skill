@@ -17,23 +17,36 @@ skill/                 das eigentliche Skill-Verzeichnis (wird nach ~/.claude/sk
   SKILL.md
   base/                layouts.css, components.css — markenneutral
   brands/<name>/       tokens.css, brand.json, assets/
-  scripts/             build-theme.py, (geplant: new, serve, export, import-brand)
+  scripts/             build-theme.py, doctor.py, common.py (geplant: new, serve, export, import-brand)
 docs/                  Architektur, Brand-Format
-tests/                 Regressionstest für Theme-Änderungen
+tests/                 Unit- und Render-Tests, Fixture-Deck, Theme-Vergleich
 ```
 
 ## Installation
 
 ```bash
-./install.sh     # verlinkt skill/ nach ~/.claude/skills/marp-presentation
+./install.sh            # verlinkt skill/ nach ~/.agents/skills und ~/.claude/skills (falls vorhanden)
+./install.sh --all      # zusätzlich ~/.copilot/skills
+./install.sh --uninstall
+python3 skill/scripts/doctor.py   # Voraussetzungen prüfen
 ```
 
 ## Theme bauen
 
 ```bash
-python3 skill/scripts/build-theme.py skill/brands/autarkit out/autarkit.css
+python3 skill/scripts/build-theme.py neutral out/neutral.css
+python3 skill/scripts/build-theme.py --list          # verfügbare Brands
 ```
+
+Eigene Brands liegen im Brand-Store `~/.config/marp-presentation/brands/<name>/`, siehe [docs/brand-format.md](docs/brand-format.md).
 
 ## Voraussetzungen
 
 Node (für `npx @marp-team/marp-cli`), Chrome/Chromium (PDF, PNG), Python 3.
+
+## Tests
+
+```bash
+python3 -m unittest discover tests      # Unit-Tests + Render-Test (braucht Chrome, sonst übersprungen)
+tests/compare-themes.sh deck.md alt.css neu.css   # Pixelvergleich bei Theme-Änderungen
+```

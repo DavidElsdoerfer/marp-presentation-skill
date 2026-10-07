@@ -4,3 +4,8 @@ node_modules/
 out/
 dist/
 .tmp/
+
+# Brands gehören in den Brand-Store (~/.config/marp-presentation/brands/), nicht ins Repo.
+# Im Repo bleibt nur das markenfreie `neutral`.
+skill/brands/*
+!skill/brands/neutral/
