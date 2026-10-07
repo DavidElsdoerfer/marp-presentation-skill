@@ -1,13 +1,11 @@
 /* ════════════════════════════════════════════════════════════════════
-   Portiert aus wiki/assets/themes/projekt.css (S6-CLI-Agent-Frameworks-
-   Schulungsmaterial) — Komponenten-Klassen für Agenda, Box-Muster,
-   Info-Callouts, Flow/Process-Diagramme, Accordion-Layout, Icon-Matrix,
-   Mehrspalten-Layouts (3/4) und Plain-Table. Farbvariablen auf die
-   autarkit-Palette (--primary/--dark/--muted/--light/--border/--white)
-   umgemappt. Bestehende title/section/cols/closing-Klassen oben in
-   dieser Datei bleiben unverändert.
+   Komponenten-Klassen: Agenda, Box-Muster, Info-Callouts, Flow-/Process-
+   Diagramme, Swimlane, Accordion-Layout, Icon-Matrix, Mehrspalten (3/4)
+   und Plain-Table. Alle Farben laufen über die Brand-Tokens
+   (--primary, --dark, --muted, --light, --border, --white, …).
+   Beispiele für jede Klasse: examples/all-classes.md.
    ════════════════════════════════════════════════════════════════════ */
-/* Tabellenfolie ohne Zebra (Folie 5+6): Alle Datenzeilen weiß. */
+/* Tabelle ohne Zebra: alle Datenzeilen weiß. */
 .table-plain tr td {
   background-color: var(--white);
 }
@@ -24,9 +22,9 @@
   gap: 1rem;
   align-items: start;
 }
-/* ── Agenda-Komponente ─────────────────────────────────────────────
-   PPTX-Quelle: Slide-Layouts "One column Agenda with Subline" (Standard,
-   ≤5–6 Kapitel) und "Two column Agenda" (kompakt, 7+ Kapitel, bis 18).
+/* ── Agenda-Komponente ────────────────────────────────────────────
+   Standard-Variante (ein Spalte, mit Subline, ca. 5–6 Kapitel) und
+   kompakte Variante (zwei Spalten, ohne Subline, 7+ Kapitel, bis 18).
    Struktur pro Kapitel: Headline (+ optional Subline) links, große
    Nummer rechts, dünne Trennlinie zwischen den Einträgen.               */
 
@@ -40,7 +38,7 @@
 }
 
 .agenda-headline {
-  font-size: 1.8rem;      /* kompakter als 30pt-PPTX-Maß — 4–6 Items müssen auf die Folie passen */
+  font-size: 1.8rem;      /* 4–6 Items müssen auf die Folie passen */
   font-weight: 400;
   color: var(--dark);
   line-height: 1.15;
@@ -48,7 +46,7 @@
 }
 
 .agenda-subline {
-  font-size: 1.1rem;      /* kompakter als 18pt-PPTX-Maß, gleicher Grund */
+  font-size: 1.1rem;      /* gleicher Grund */
   font-weight: 400;
   color: var(--muted);
   line-height: 1.2;
@@ -91,11 +89,10 @@
   font-size: 1.2rem;
   min-width: 1.8rem;
 }
-/* ── Box-Muster (orangefarbener Header + Inhaltsbereich mit Rahmen) ──
-   PPTX-Quelle: mehrere Content-Layouts mit Label + Textfeld.
+/* ── Box-Muster (Header in Primärfarbe + Inhaltsbereich mit Rahmen) ──
    Verwendung: Definitionen, Hinweise, strukturierte Punkte.             */
 
-/* Box-Header (solid orange) */
+/* Box-Header (Primärfarbe, solid) */
 .box-header {
   background: var(--primary);
   color: var(--white);
@@ -115,7 +112,7 @@
   font-size: 0.82rem;
   line-height: 1.7;
 }
-/* Bullet-Marker: Em-Dash (—) statt Punkt — 1:1 aus PPTX (list.bullet = "–") */
+/* Bullet-Marker: Strich (–) statt Punkt */
 .box-body ul {
   list-style: none;
   padding-left: 1.2rem;
@@ -131,10 +128,9 @@
   color: var(--primary);
 }
 
-/* Info-Callout (hell-oranger Tint var(--callout), dunkler Text — accent1 mit
-   Helligkeits-Tint, gemessen via SVG-Export der PPTX. Dient als Footer-Span
-   unter 2-Spalten-Bereich auf Folie 3. Unterschied zu .box-header: volle
-   Brand-Orange + weißer Text vs. Tint + dunkler Text.) */
+/* Info-Callout: heller Tint (--callout) mit dunklem Text, z. B. als Fußzeile
+   unter einem Zwei-Spalten-Bereich. Unterschied zu .box-header: Tint +
+   dunkler Text statt voller Primärfarbe + weißer Text. */
 .info-callout {
   background: var(--callout);
   color: var(--dark);
@@ -143,13 +139,11 @@
   line-height: 1.5;
   flex-shrink: 0;   /* bleibt auf natürlicher Höhe, wächst nicht */
 }
-/* ── Accordion-Layout (Folie 8) ─────────────────────────────────────────
-   PPTX-Quelle: Folie 8 "Four Content Areas with Boxes" (manuell gebaut).
-   Struktur: orangener Sub-Header (volle Breite) + 4 Zeilen mit je
-   3 Spalten: Label (var(--grey-label)) | Mitte (var(--grey-mid)) | Rechts (var(--light)).
-   Weiße Trennlinien zwischen Zeilen. Zeilen 2+3: rechts-zeigendes Dreieck
-   (CSS border-trick) am rechten Rand der Mittel-Spalte.
-   Spaltenbreite: ~19% : ~34% : ~47% (gemessen via SVG-Export). */
+/* ── Accordion-Layout ──────────────────────────────────────────────
+   Struktur: Sub-Header in Primärfarbe (volle Breite) + n Zeilen mit je
+   3 Spalten: Label | Mitte | Rechts. Weiße Trennlinien zwischen den Zeilen.
+   Zeilen mit .has-arrow zeigen ein rechts-zeigendes Dreieck am Rand der
+   Mittel-Spalte. Spaltenbreiten ca. 19 % : 34 % : 47 %. */
 .accordion-layout {
   flex: 1;
   display: flex;
@@ -217,10 +211,8 @@
 }
 
 /* Icon-Matrix (Vergleichskarten-Raster, 2 Spalten × n Zeilen)
-   PPTX-Quelle: Folie 7 "Four Content Areas with Boxes" (Karten-Variante,
-   6 Karten = 2 Spalten × 3 Zeilen). Jede Karte: Header-Bar (identisch zu
-   .box-header — orange, weißer Text) + hellgrauer Body (Grey100 var(--light))
-   mit 3 Bild/Icon-Platzhaltern (Fill=accent3=--dark) + Beschriftung. */
+   Jede Karte: Header-Bar (wie .box-header) + hellgrauer Body mit
+   Bild/Icon-Platzhaltern (Fill = --dark) + Beschriftung. */
 .icon-matrix {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -253,10 +245,9 @@
   margin-bottom: 0.3rem;
 }
 /* ── Flow / Process Patterns ─────────────────────────────────────────
-   Abgeleitet aus PPTX Folien 9 (Four Content Areas with Boxes)
-   und Folie 10 (Horizontal Swimlane). Siehe wiki/flow-diagrams.md.   */
+   Horizontale und vertikale Abläufe, Swimlanes, Rückpfeile/Loops.      */
 
-/* Box-Header: orange solid (aktive Schritte, Reihe 2 im Grid) */
+/* Box-Header: Primärfarbe solid (aktive Schritte, Reihe 2 im Grid) */
 .flow-header {
   background: var(--primary);
   color: var(--white);
@@ -278,7 +269,7 @@
   text-transform: uppercase;
 }
 
-/* Box-Header: Pfeilform (Swimlane — Folie 10) */
+/* Box-Header: Pfeilform (Swimlane) */
 .flow-header-arrow {
   background: var(--primary);
   color: var(--white);
