@@ -53,10 +53,12 @@ Anforderungen: [docs/requirements.md](docs/requirements.md) · Entscheidungen: [
 
 **Fertig, wenn:** ein Deck als `.deck` gepackt, auf einem anderen Rechner entpackt und ohne Anpassung gebaut werden kann.
 
-- [ ] `pack`/`unpack` (`.deck`)
-- [ ] Optionaler Adapter `import-deck` über `pptx2md --marp`
-- [ ] `SKILL.md` vollständig, ersetzt Command `/presentation`
-- [ ] Migration S6, Release v0.1.0
+- [x] `pack`/`unpack` (`.deck`)
+- [x] Optionaler Adapter `import-deck` über `pptx2md --marp`
+- [x] `SKILL.md` vollständig
+- [ ] globalen Command `/presentation` ablösen (liegt außerhalb des Repos, Entscheidung des Autors)
+- [ ] Migration S6 (Entscheidung offen: ein Deck pro Session, geteilte Assets)
+- [ ] Release v0.1.0 (nach Test mit echter PowerPoint-Firmenvorlage)
 
 ## Zuordnung Anforderung → Meilenstein
 

@@ -5,6 +5,10 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionier
 ## [Unveröffentlicht]
 
 ### Hinzugefügt
+- `.deck`-Container: `marp-deck pack` / `unpack` (ZIP mit Manifest; prüft Zip-Slip, Symlinks, Größen, überschreibt nie)
+- `marp-deck import-deck`: bestehende PowerPoint-Präsentation als Marp-Deck (optional über `pptx2md`); entfernt externe Google-Fonts-Importe
+- Tests: Pack/Unpack inkl. manipulierter Archive, Adapter, „Brand-Import liest nie Folieninhalt“
+- Entscheidung 0008
 - CI-Import aus PowerPoint: `marp-deck brand showcase|import|preview|compare`, `pptx_extract.py`, `pptx_showcase.py`, `brand_import.py`, `brand_preview.py`
 - Hintergründe pixelgenau über LibreOffice oder PDF-Export aus PowerPoint; ohne beides Rekonstruktion aus Grafiken
 - Vergleich Original ↔ Marp mit Differenzbild und Abweichung in %; `reference/`-Renderings im Brand
@@ -36,6 +40,7 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionier
 - `tests/compare-themes.sh`
 
 ### Geändert
+- Brand-Snapshot im Deck enthält keine Original-Richtlinien (`guidelines/`) und keine Referenzbilder (`reference/`) mehr
 - Brand `autarkit` aus dem Repo entfernt (liegt im Brand-Store; im Git-Verlauf bleibt der erste Commit)
 - Alle 40 Komponentenklassen visuell geprüft (Fixture); `neutral`: `--primary-lt` aufgehellt
 - Hartcodierte Farben in Komponenten durch Tokens ersetzt (`--grey-label`, `--grey-mid`, `--callout`, `--light`, `--border`, `--white`)

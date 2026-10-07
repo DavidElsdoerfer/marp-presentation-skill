@@ -96,7 +96,10 @@ def theme_xml():
             f'</a:themeElements></a:theme>')
 
 
-def build(path, aspect="16:9"):
+SECRET = "GEHEIMER-FOLIENTEXT-4711"
+
+
+def build(path, aspect="16:9", slides=False):
     geo = Geo(12192000, 6858000) if aspect == "16:9" else Geo(9144000, 6858000)
     bg1, tx2, acc1 = scheme("bg1"), scheme("tx2"), scheme("accent1")
 
@@ -172,13 +175,25 @@ def build(path, aspect="16:9"):
     pres = (HDR + f'<p:presentation {NS}><p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId1"/></p:sldMasterIdLst>'
             f'<p:sldSz cx="{geo.w}" cy="{geo.h}"/><p:notesSz cx="6858000" cy="9144000"/></p:presentation>')
 
+    if slides:
+        def slide(layout_no, sps):
+            return (HDR + f'<p:sld {NS}><p:cSld>{sptree(sps)}</p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>')
+        slide1 = slide(1, ph(2, "Titel", "ctrTitle", text="Mein Vortrag") + ph(3, "Untertitel", "subTitle", 1, text="Untertitel hier"))
+        slide2 = slide(2, ph(2, "Titel", "title", text="Erste Inhaltsfolie") + ph(3, "Inhalt", None, 1, text=SECRET))
+        ct = ct.replace("</Types>", "".join(f'<Override PartName="/ppt/slides/slide{i}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>' for i in (1, 2)) + "</Types>")
+        pres = pres.replace(f'<p:sldSz', '<p:sldIdLst><p:sldId id="256" r:id="rId2"/><p:sldId id="257" r:id="rId3"/></p:sldIdLst><p:sldSz')
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
         z.writestr("[Content_Types].xml", ct)
         z.writestr("_rels/.rels", rels([("rId1", "officeDocument", "ppt/presentation.xml")]))
         z.writestr("ppt/presentation.xml", pres)
-        z.writestr("ppt/_rels/presentation.xml.rels", rels([("rId1", "slideMaster", "slideMasters/slideMaster1.xml")]))
+        z.writestr("ppt/_rels/presentation.xml.rels", rels([("rId1", "slideMaster", "slideMasters/slideMaster1.xml")]
+                                                           + ([("rId2", "slide", "slides/slide1.xml"), ("rId3", "slide", "slides/slide2.xml")] if slides else [])))
+        if slides:
+            z.writestr("ppt/slides/slide1.xml", slide1); z.writestr("ppt/slides/slide2.xml", slide2)
+            z.writestr("ppt/slides/_rels/slide1.xml.rels", rels([("rId1", "slideLayout", "../slideLayouts/slideLayout1.xml")]))
+            z.writestr("ppt/slides/_rels/slide2.xml.rels", rels([("rId1", "slideLayout", "../slideLayouts/slideLayout2.xml")]))
         z.writestr("ppt/theme/theme1.xml", theme_xml())
         z.writestr("ppt/slideMasters/slideMaster1.xml", master)
         z.writestr("ppt/slideMasters/_rels/slideMaster1.xml.rels", rels(

@@ -99,3 +99,37 @@ den Renderern (Glyphenkanten, 1–2 px Versatz); sie wächst mit der Schriftgrö
 
 PPTX-Vorlagen, Logos, Schriften und Richtlinien einer Firma gehören **nicht** in ein öffentliches Repo. Der Brand-Store
 liegt außerhalb des Skill-Repos; `reference/` und `assets/` enthalten die Grafiken der CI und bleiben dort.
+
+---
+
+# Bestehende Präsentation übernehmen (`import-deck`)
+
+Optional, über das Werkzeug [`pptx2md`](https://github.com/OscarPellicer/pptx2marp) (Fork mit Marp-Ausgabe, Apache-2.0).
+Es ist keine Abhängigkeit des Skills und braucht einen `python-pptx`-Fork sowie numpy/scipy; das Projekt wird seit
+2025-10 nicht mehr aktualisiert. Installation in einer eigenen Umgebung:
+
+```bash
+python3 -m venv ~/.local/share/pptx2md
+~/.local/share/pptx2md/bin/pip install git+https://github.com/OscarPellicer/python-pptx.git git+https://github.com/OscarPellicer/pptx2marp.git
+export PPTX2MD=~/.local/share/pptx2md/bin/pptx2md
+marp-deck import-deck alter-vortrag.pptx --brand firma --title "Alter Vortrag"
+```
+
+Übernommen werden Titel, Text, Listen, Tabellen, Bilder (nach `assets/`) und Sprechernotizen (als `<!-- … -->`). **Nicht**
+übernommen werden Layout, Diagramme, SmartArt, Animationen. Der Adapter ersetzt die Frontmatter, entfernt den mitgelieferten
+CSS-Block (inklusive eines Google-Fonts-`@import`, der beim Öffnen Anfragen ins Internet senden würde) und macht aus der
+ersten Folie eine Titelfolie. Alle weiteren Folien erhalten die Standard-Inhaltsklasse; Abschnitte, Spalten und Abschluss
+ordnest du danach zu.
+
+# Decks weitergeben (`pack` / `unpack`)
+
+```bash
+marp-deck pack mein-vortrag            # → mein-vortrag.deck (ZIP)
+marp-deck unpack mein-vortrag.deck --dir ~/Vorträge
+```
+
+Ein `.deck` ist ein ZIP mit `manifest.json` (Format, Version, Name, Brand) und dem Deck-Ordner (Quelle, Config,
+Theme-Snapshot, Assets). `dist/`, `.marp-deck/` und Symlinks bleiben draußen. Der Brand-Snapshot enthält weder
+Original-Richtlinien (`guidelines/`) noch Referenzbilder (`reference/`). `unpack` prüft das Archiv vollständig, bevor es
+etwas schreibt: Pfade mit `..` oder absolute Pfade, Symlinks, Einträge außerhalb des Deck-Ordners, zu große oder zu viele
+Dateien und neuere Formatversionen werden abgelehnt; ein vorhandener Zielordner wird nie überschrieben.

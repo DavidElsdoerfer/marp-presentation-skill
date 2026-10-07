@@ -4,6 +4,9 @@
   marp-deck new <titel> [--brand NAME] [--dir ORDNER] [--slug SLUG]
   marp-deck serve [DECK] [--port N] [--stop]
   marp-deck export pdf|html|pptx [DECK] [-o DATEI]
+  marp-deck import-deck DATEI.pptx [--brand NAME] [--title T] [--dir ORDNER] [--tool PFAD]   (optional, braucht pptx2md)
+  marp-deck pack [DECK] [-o DATEI.deck] [--force]
+  marp-deck unpack DATEI.deck [--dir ORDNER]
   marp-deck brand list
   marp-deck brand sync [DECK]
   marp-deck brand showcase VORLAGE.pptx [--out ORDNER]
@@ -16,7 +19,8 @@
 DECK ist der Deck-Ordner (Standard: aktueller Ordner oder genau ein Unterordner mit marp.config.mjs).
 """
 import argparse, base64, importlib.util, json, mimetypes, os, re, shutil, signal, socket, subprocess, sys, tempfile
-import time, unicodedata, urllib.error, urllib.request
+import time, unicodedata, urllib.error, urllib.request, zipfile
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import quote, unquote
 
@@ -46,6 +50,9 @@ export default {
 """
 
 DECK_GITIGNORE = "dist/\n.marp-deck/\n"
+
+# Nicht in den Brand-Snapshot eines Decks kopieren (vertrauliche Originale, nur für den Brand-Vergleich nötig)
+SNAPSHOT_EXCLUDE = ("guidelines", "reference")
 
 DECK_TEMPLATE = """\
 ---
@@ -146,7 +153,9 @@ def snapshot_brand(src, deck):
     if Path(src).resolve() != dst.resolve():  # Snapshot nie über sich selbst kopieren
         if dst.exists():
             shutil.rmtree(dst)
-        shutil.copytree(src, dst)
+        # Nur, was zum Bauen und Schreiben nötig ist: Original-Richtlinien (guidelines/) und Referenzbilder (reference/)
+        # bleiben im Brand-Store, damit ein weitergegebenes Deck sie nicht mitnimmt.
+        shutil.copytree(src, dst, ignore=shutil.ignore_patterns(*SNAPSHOT_EXCLUDE))
     bt.build(dst.resolve(), deck / "theme" / "theme.css")
 
 
@@ -334,6 +343,127 @@ def cmd_export(a):
     print(f"{out} ({size:.0f} KB) — {note}")
 
 
+# ── pack / unpack (.deck = ZIP des Deck-Ordners + manifest.json) ───────────
+
+DECK_FORMAT, DECK_FORMAT_VERSION = "marp-deck", 1
+PACK_SKIP_DIRS = {"dist", ".marp-deck", "node_modules", ".git"}
+MAX_PACK_ENTRIES = 5000
+MAX_PACK_BYTES = 512 * 1024 * 1024
+
+
+def safe_member(name, root):
+    """Prüft einen ZIP-Eintragsnamen; gibt den Zielpfad zurück (immer unterhalb von root) oder wirft ValueError."""
+    if not name or name.startswith(("/", "\\")) or "\\" in name or re.match(r"^[A-Za-z]:", name) or "\x00" in name:
+        raise ValueError(f"unzulässiger Pfad im Archiv: {name!r}")
+    parts = name.split("/")
+    if any(p in ("..", "") for p in parts[:-1]) or parts[-1] == "..":
+        raise ValueError(f"unzulässiger Pfad im Archiv: {name!r}")
+    dest = (root / name).resolve()
+    if not dest.is_relative_to(root.resolve()):
+        raise ValueError(f"Pfad verlässt den Zielordner: {name!r}")
+    return dest
+
+
+def valid_deck_name(name):
+    return isinstance(name, str) and bool(name) and name not in (".", "..") and not re.search(r"[/\\\x00]", name)
+
+
+def cmd_pack(a):
+    deck = find_deck(a.deck)
+    out = Path(a.output).expanduser().resolve() if a.output else deck.parent / f"{deck.name}.deck"
+    if out.exists() and not a.force:
+        die(f"{out} existiert bereits (--force zum Überschreiben)")
+    snap = deck / "theme" / "brand" / "brand.json"
+    brand = json.loads(snap.read_text())["name"] if snap.is_file() else None
+    files = []
+    for p in sorted(deck.rglob("*")):
+        rel = p.relative_to(deck)
+        if any(part in PACK_SKIP_DIRS for part in rel.parts):
+            continue
+        if p.is_symlink():
+            print(f"WARNUNG: Symlink übersprungen: {rel}", file=sys.stderr)
+            continue
+        if p.is_file():
+            files.append(p)
+    if len(files) > MAX_PACK_ENTRIES:
+        die(f"zu viele Dateien ({len(files)} > {MAX_PACK_ENTRIES})")
+    manifest = {"format": DECK_FORMAT, "version": DECK_FORMAT_VERSION, "name": deck.name, "brand": brand,
+                "created": datetime.now(timezone.utc).isoformat(timespec="seconds"), "files": len(files)}
+    out.parent.mkdir(parents=True, exist_ok=True)
+    tmp = out.with_suffix(out.suffix + ".tmp")
+    with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("manifest.json", json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")
+        for p in files:
+            z.write(p, f"{deck.name}/{p.relative_to(deck).as_posix()}")
+    tmp.replace(out)
+    print(f"{out} ({out.stat().st_size / 1024:.0f} KB, {len(files)} Dateien, Brand '{brand}')")
+    if (deck / "theme" / "brand" / "fonts").is_dir():
+        print("Hinweis: das Deck enthält Schriftdateien — Lizenz prüfen, bevor du es weitergibst.")
+
+
+def cmd_unpack(a):
+    src = Path(a.file).expanduser()
+    if not src.is_file():
+        die(f"{src} nicht gefunden")
+    try:
+        z = zipfile.ZipFile(src)
+    except zipfile.BadZipFile:
+        die(f"{src} ist kein gültiges Archiv")
+    with z:
+        try:
+            manifest = json.loads(z.read("manifest.json"))
+        except (KeyError, ValueError):
+            die("kein gültiges .deck: manifest.json fehlt oder ist defekt")
+        if manifest.get("format") != DECK_FORMAT:
+            die(f"kein marp-deck-Archiv (format={manifest.get('format')!r})")
+        if manifest.get("version", 0) > DECK_FORMAT_VERSION:
+            die(f"Archivversion {manifest['version']} ist neuer als unterstützt ({DECK_FORMAT_VERSION}) — Skill aktualisieren")
+        name = manifest.get("name")
+        if not valid_deck_name(name):
+            die(f"unzulässiger Deck-Name im Manifest: {name!r}")
+        infos = [i for i in z.infolist() if i.filename != "manifest.json"]
+        if len(infos) > MAX_PACK_ENTRIES:
+            die("Archiv hat zu viele Einträge")
+        if sum(i.file_size for i in infos) > MAX_PACK_BYTES:
+            die("Archiv ist entpackt zu groß")
+        parent = Path(a.dir).expanduser().resolve() if a.dir else Path.cwd()
+        target = parent / name
+        if target.exists():
+            die(f"{target} existiert bereits — nichts überschrieben")
+        # Erst alles prüfen, dann schreiben: ein manipuliertes Archiv hinterlässt nichts.
+        plan = []
+        for i in infos:
+            if not i.filename.startswith(name + "/"):
+                die(f"Eintrag außerhalb von {name}/: {i.filename!r}")
+            if (i.external_attr >> 16) & 0o170000 == 0o120000:
+                die(f"Symlink im Archiv abgelehnt: {i.filename!r}")
+            try:
+                dest = safe_member(i.filename, parent)
+            except ValueError as e:
+                die(str(e))
+            plan.append((i, dest))
+        if not any(i.filename == f"{name}/marp.config.mjs" for i in infos):
+            die("kein Deck: marp.config.mjs fehlt im Archiv")
+        written = 0
+        try:
+            for i, dest in plan:
+                if i.is_dir():
+                    dest.mkdir(parents=True, exist_ok=True)
+                    continue
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                with z.open(i) as fin, open(dest, "wb") as fout:
+                    while chunk := fin.read(1 << 20):
+                        written += len(chunk)
+                        if written > MAX_PACK_BYTES:
+                            raise RuntimeError("Archiv ist entpackt zu groß")
+                        fout.write(chunk)
+        except Exception:
+            shutil.rmtree(target, ignore_errors=True)   # nur das, was dieser Lauf angelegt hat (target existierte vorher nicht)
+            raise
+    print(f"Deck entpackt: {target}")
+    print(f"  Brand: {manifest.get('brand')} · {manifest.get('files')} Dateien · Vorschau: marp-deck serve {target}")
+
+
 # ── brand ──────────────────────────────────────────────────────────────────
 
 def brand_store():
@@ -347,6 +477,35 @@ def _load(name):
     sys.modules[name] = mod
     spec.loader.exec_module(mod)
     return mod
+
+
+def cmd_import_deck(a):
+    di = _load("deck_import")
+    src = Path(a.file).expanduser()
+    if not src.is_file():
+        die(f"{src} nicht gefunden")
+    try:
+        tool = di.find_tool(a.tool)
+    except di.DeckImportError as e:
+        die(str(e))
+    title = a.title or src.stem.replace("_", " ").replace("-", " ")
+    cmd_new(argparse.Namespace(title=[title], brand=a.brand, dir=a.dir, slug=a.slug))
+    slug = a.slug or slugify(title)
+    deck = (Path(a.dir).expanduser() if a.dir else Path.cwd()).resolve() / slug
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            md, roots = di.convert(src, tool, tmp)
+            frontmatter, _ = di.split_frontmatter((deck / f"{slug}.md").read_text())
+            text, info = di.build_markdown(md.read_text(), frontmatter + "\n", roots, deck / "assets")
+    except (di.DeckImportError, subprocess.TimeoutExpired) as e:
+        shutil.rmtree(deck, ignore_errors=True)        # das Deck wurde in diesem Lauf angelegt (new lehnt vorhandene Ordner ab)
+        die(str(e))
+    (deck / f"{slug}.md").write_text(text)
+    print(f"{info['slides']} Folien aus {src.name} übernommen → {deck / (slug + '.md')}")
+    print("  Übernommen: Titel, Text, Listen, Tabellen, Bilder, Sprechernotizen. Nicht übernommen: Layout, Diagramme, SmartArt, Animationen.")
+    print("  Alle Folien nutzen die Standard-Inhaltsklasse; Abschnitte (`section`), Spalten (`cols`) und Abschluss (`closing`) ordnest du danach zu.")
+    if info["missing_images"]:
+        print(f"  WARNUNG: {len(info['missing_images'])} Bild(er) nicht gefunden: {', '.join(info['missing_images'][:5])}", file=sys.stderr)
 
 
 def cmd_brand(a):
@@ -456,6 +615,26 @@ def main():
     b.add_argument("--guidelines", action="append", default=[]); b.add_argument("--fonts")
     b.add_argument("--map", action="append", default=[]); b.add_argument("--no-render", action="store_true")
     b.set_defaults(fn=lambda a: (setattr(a, "deck", a.target), cmd_brand(a)))
+
+    ii = sp.add_parser("import-deck", help="bestehende PPTX-Präsentation als Marp-Deck übernehmen (braucht pptx2md)")
+    ii.add_argument("file")
+    ii.add_argument("--brand", default="neutral")
+    ii.add_argument("--title")
+    ii.add_argument("--dir")
+    ii.add_argument("--slug")
+    ii.add_argument("--tool")
+    ii.set_defaults(fn=cmd_import_deck)
+
+    pk = sp.add_parser("pack", help="Deck als .deck (ZIP) packen")
+    pk.add_argument("deck", nargs="?")
+    pk.add_argument("-o", "--output")
+    pk.add_argument("--force", action="store_true")
+    pk.set_defaults(fn=cmd_pack)
+
+    up = sp.add_parser("unpack", help=".deck entpacken")
+    up.add_argument("file")
+    up.add_argument("--dir")
+    up.set_defaults(fn=cmd_unpack)
 
     d = sp.add_parser("doctor", help="Voraussetzungen prüfen")
     d.set_defaults(fn=cmd_doctor)

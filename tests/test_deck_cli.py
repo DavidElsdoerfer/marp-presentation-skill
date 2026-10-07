@@ -1,6 +1,6 @@
 """Tests für marp-deck: new, brand sync, export, serve, Browser-Verhalten.
 Integrationstests brauchen Node (npx, marp-cli im Cache oder Netzwerk); Browser-Tests zusätzlich Chrome."""
-import importlib.machinery, importlib.util, json, os, shutil, socket, subprocess, sys, tempfile, unittest
+import importlib.machinery, importlib.util, json, os, shutil, socket, subprocess, sys, tempfile, unittest, zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -113,6 +113,118 @@ class NewAndBrand(unittest.TestCase):
     def test_find_deck_errors(self):
         r = deck_cli("export", "html", self.t / "nix", env=self.env)
         self.assertNotEqual(r.returncode, 0); self.assertIn("kein Deck gefunden", r.stderr)
+
+
+class PackUnpack(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(); self.t = Path(self.tmp.name)
+        self.env = {"MARP_BRANDS_DIR": str(self.t / "store")}
+        self.assertEqual(deck_cli("new", "Pack Deck", "--dir", self.t, env=self.env).returncode, 0)
+        self.deck = self.t / "pack-deck"
+        (self.deck / "assets" / "p.png").write_bytes(PNG)
+        (self.deck / "dist").mkdir(); (self.deck / "dist" / "gross.pdf").write_bytes(b"%PDF")
+        (self.deck / ".marp-deck").mkdir(); (self.deck / ".marp-deck" / "serve.json").write_text("{}")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def evil(self, name, entries, manifest=None):
+        """Baut ein manipuliertes .deck-Archiv."""
+        path = self.t / name
+        man = manifest if manifest is not None else {"format": "marp-deck", "version": 1, "name": "pack-deck", "brand": "x", "files": 1}
+        with zipfile.ZipFile(path, "w") as z:
+            if man is not False:
+                z.writestr("manifest.json", json.dumps(man))
+            for n, data in entries:
+                z.writestr(n, data)
+        return path
+
+    def test_roundtrip_and_exclusions(self):
+        r = deck_cli("pack", self.deck, env=self.env)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        arc = self.t / "pack-deck.deck"
+        names = zipfile.ZipFile(arc).namelist()
+        self.assertEqual(names[0], "manifest.json")
+        self.assertTrue(all(n.startswith("pack-deck/") for n in names[1:]))
+        self.assertFalse(any("dist/" in n or ".marp-deck" in n for n in names))
+        man = json.loads(zipfile.ZipFile(arc).read("manifest.json"))
+        self.assertEqual((man["format"], man["version"], man["name"], man["brand"]), ("marp-deck", 1, "pack-deck", "neutral"))
+        out = self.t / "elsewhere"; out.mkdir()
+        r = deck_cli("unpack", arc, "--dir", out, env=self.env)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        for rel in ("pack-deck.md", "marp.config.mjs", "theme/theme.css", "assets/p.png"):
+            self.assertEqual((out / "pack-deck" / rel).read_bytes(), (self.deck / rel).read_bytes(), rel)
+        self.assertFalse((out / "pack-deck" / "dist").exists())
+
+    def test_pack_refuses_overwrite_without_force(self):
+        self.assertEqual(deck_cli("pack", self.deck, env=self.env).returncode, 0)
+        r = deck_cli("pack", self.deck, env=self.env)
+        self.assertNotEqual(r.returncode, 0); self.assertIn("existiert bereits", r.stderr)
+        self.assertEqual(deck_cli("pack", self.deck, "--force", env=self.env).returncode, 0)
+
+    def test_unpack_refuses_existing_target_untouched(self):
+        deck_cli("pack", self.deck, env=self.env)
+        (self.deck / "marker.txt").write_text("bleibt")
+        r = deck_cli("unpack", self.t / "pack-deck.deck", "--dir", self.t, env=self.env)   # Ziel = vorhandenes Deck
+        self.assertNotEqual(r.returncode, 0); self.assertIn("existiert bereits", r.stderr)
+        self.assertEqual((self.deck / "marker.txt").read_text(), "bleibt")
+
+    def test_zip_slip_rejected_and_nothing_written(self):
+        out = self.t / "ziel"; out.mkdir()
+        for bad in ("pack-deck/../../außerhalb.txt", "/etc/passwd", "pack-deck/../x", "pack-deck\\x", "C:/win.txt", "andere/datei.txt"):
+            arc = self.evil("bad.deck", [("pack-deck/marp.config.mjs", "export default {}"), (bad, "böse")])
+            r = deck_cli("unpack", arc, "--dir", out, env=self.env)
+            self.assertNotEqual(r.returncode, 0, bad)
+            self.assertEqual(list(out.iterdir()), [], f"nach {bad!r} darf nichts geschrieben sein")
+            self.assertFalse((self.t / "außerhalb.txt").exists())
+
+    def test_symlink_entry_rejected(self):
+        path = self.t / "link.deck"
+        with zipfile.ZipFile(path, "w") as z:
+            z.writestr("manifest.json", json.dumps({"format": "marp-deck", "version": 1, "name": "pack-deck"}))
+            z.writestr("pack-deck/marp.config.mjs", "x")
+            info = zipfile.ZipInfo("pack-deck/link"); info.create_system = 3; info.external_attr = (0o120777 << 16)
+            z.writestr(info, "/etc/passwd")
+        out = self.t / "ziel2"; out.mkdir()
+        r = deck_cli("unpack", path, "--dir", out, env=self.env)
+        self.assertNotEqual(r.returncode, 0); self.assertIn("Symlink", r.stderr); self.assertEqual(list(out.iterdir()), [])
+
+    def test_invalid_archives(self):
+        out = self.t / "ziel3"; out.mkdir()
+        cases = {
+            "ohne Manifest": self.evil("a.deck", [("pack-deck/marp.config.mjs", "x")], manifest=False),
+            "falsches Format": self.evil("b.deck", [("pack-deck/marp.config.mjs", "x")], manifest={"format": "anderes", "name": "pack-deck"}),
+            "Name mit Pfad": self.evil("c.deck", [("pack-deck/marp.config.mjs", "x")], manifest={"format": "marp-deck", "version": 1, "name": "../x"}),
+            "neuere Version": self.evil("d.deck", [("pack-deck/marp.config.mjs", "x")], manifest={"format": "marp-deck", "version": 99, "name": "pack-deck"}),
+            "kein Deck": self.evil("e.deck", [("pack-deck/readme.txt", "x")]),
+        }
+        for label, arc in cases.items():
+            r = deck_cli("unpack", arc, "--dir", out, env=self.env)
+            self.assertNotEqual(r.returncode, 0, label)
+            self.assertEqual(list(out.iterdir()), [], label)
+        junk = self.t / "junk.deck"; junk.write_bytes(b"kein zip")
+        self.assertNotEqual(deck_cli("unpack", junk, "--dir", out, env=self.env).returncode, 0)
+        self.assertNotEqual(deck_cli("unpack", self.t / "gibtsnicht.deck", env=self.env).returncode, 0)
+
+    def test_size_limit(self):
+        arc = self.evil("big.deck", [("pack-deck/marp.config.mjs", "x"), ("pack-deck/gross.bin", "0" * 4096)])
+        old = md.MAX_PACK_BYTES
+        md.MAX_PACK_BYTES = 1000
+        try:
+            args = type("A", (), {"file": str(arc), "dir": str(self.t / "ziel4")})
+            (self.t / "ziel4").mkdir()
+            with self.assertRaises(SystemExit):
+                md.cmd_unpack(args)
+        finally:
+            md.MAX_PACK_BYTES = old
+        self.assertEqual(list((self.t / "ziel4").iterdir()), [])
+
+    def test_safe_member(self):
+        root = self.t
+        self.assertTrue(md.safe_member("a/b.txt", root).is_relative_to(root.resolve()))
+        for bad in ("../x", "a/../../x", "/abs", "a\\b", "", "a//b", "C:/x"):
+            with self.assertRaises(ValueError, msg=bad):
+                md.safe_member(bad, root)
 
 
 @unittest.skipUnless(HAVE_NODE, "npx nicht gefunden")
