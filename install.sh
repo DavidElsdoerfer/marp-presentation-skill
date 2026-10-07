@@ -17,7 +17,7 @@ all=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --all) all=1 ;;
-    --target) shift; targets+=("$1") ;;
+    --target) [ $# -ge 2 ] || { echo "--target braucht ein Verzeichnis" >&2; exit 2; }; shift; targets+=("$1") ;;
     --uninstall) mode=uninstall ;;
     -h|--help) sed -n '2,9p' "$0"; exit 0 ;;
     *) echo "Unbekannte Option: $1" >&2; exit 2 ;;

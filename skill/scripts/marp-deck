@@ -11,7 +11,7 @@
   marp-deck brand sync [DECK]
   marp-deck brand showcase VORLAGE.pptx [--out ORDNER]
   marp-deck brand import VORLAGE.pptx --name NAME [--backgrounds PDF|ORDNER] [--reference PDF|ORDNER]
-                         [--guidelines DATEI]... [--fonts ORDNER] [--map klasse=Layout]... [--no-render] [--out ORDNER]
+                         [--guidelines DATEI]... [--fonts ORDNER] [--map klasse=Layout]... [--no-render] [--replace] [--out ORDNER]
   marp-deck brand preview NAME [--out ORDNER]
   marp-deck brand compare NAME [--out ORDNER]
   marp-deck doctor
@@ -60,12 +60,12 @@ marp: true
 theme: {theme}
 {size_line}paginate: true
 html: true
-footer: "{title}"
+footer: {title}
 ---
 
 <!-- _class: title -->
 
-# {title}
+# {title_md}
 ## Untertitel
 
 <div class="title-meta">
@@ -113,8 +113,22 @@ MONTHS = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August"
           "November", "Dezember"]
 
 
+SAFE_NAME = re.compile(r"^[\w][\w.\-]*$", re.UNICODE)
+
+
+def check_name(value, what):
+    if not value or not SAFE_NAME.match(value) or ".." in value:
+        die(f"unzulässiger {what}: {value!r} (erlaubt: Buchstaben, Ziffern, _ . -)")
+    return value
+
+
 def die(msg):
     sys.exit(f"marp-deck: {msg}")
+
+
+def yaml_text(text):
+    """Text als YAML-Zeichenkette in Anführungszeichen (Backslash, Anführungszeichen, Zeilenumbrüche sicher)."""
+    return json.dumps(" ".join(str(text).split()), ensure_ascii=False)
 
 
 def slugify(title):
@@ -138,6 +152,21 @@ def find_deck(arg=None):
     die(f"kein Deck gefunden in {base} (marp.config.mjs fehlt)")
 
 
+def ensure_trusted_config(deck, trust=False):
+    """marp.config.mjs ist ein JS-Modul und wird von marp-cli ausgeführt. Nur die generierte Standard-Config ist vertrauenswürdig."""
+    cfg = deck / "marp.config.mjs"
+    if trust or (cfg.is_file() and cfg.read_text() == CONFIG):
+        return
+    die(f"{cfg} weicht von der generierten Standard-Config ab. marp-cli führt diese Datei als Code aus.\n"
+        "  Quelle prüfen und mit --trust-config fortfahren, oder `marp-deck repair-config <deck>` stellt die Standard-Config wieder her.")
+
+
+def cmd_repair_config(a):
+    deck = find_deck(a.deck)
+    (deck / "marp.config.mjs").write_text(CONFIG)
+    print(f"Standard-Config wiederhergestellt: {deck / 'marp.config.mjs'}")
+
+
 def deck_md(deck):
     named = deck / f"{deck.name}.md"
     if named.is_file():
@@ -148,14 +177,42 @@ def deck_md(deck):
     die(f"{deck}: Deck-Datei nicht eindeutig (erwarte {deck.name}.md)")
 
 
+def differs(src, dst):
+    """Dateien, die im Deck-Snapshot anders sind als in der Quelle (oder nur dort existieren)."""
+    src, dst = Path(src), Path(dst)
+    out = []
+    for p in sorted(dst.rglob("*")):
+        if p.is_file():
+            rel = p.relative_to(dst)
+            q = src / rel
+            if not q.is_file() or q.read_bytes() != p.read_bytes():
+                out.append(rel.as_posix())
+    return out
+
+
 def snapshot_brand(src, deck):
     dst = deck / "theme" / "brand"
     if Path(src).resolve() != dst.resolve():  # Snapshot nie über sich selbst kopieren
         if dst.exists():
+            changed = differs(src, dst)
+            if changed:   # Handänderungen im Deck nicht stillschweigend verwerfen
+                backup = deck / ".marp-deck" / f"brand-backup-{time.strftime('%Y%m%d-%H%M%S')}"
+                backup.parent.mkdir(exist_ok=True)
+                shutil.copytree(dst, backup, symlinks=True)
+                print(f"WARNUNG: Änderungen im Deck-Snapshot ersetzt ({', '.join(changed[:5])}"
+                      f"{' …' if len(changed) > 5 else ''}); Sicherung: {backup}", file=sys.stderr)
             shutil.rmtree(dst)
         # Nur, was zum Bauen und Schreiben nötig ist: Original-Richtlinien (guidelines/) und Referenzbilder (reference/)
         # bleiben im Brand-Store, damit ein weitergegebenes Deck sie nicht mitnimmt.
-        shutil.copytree(src, dst, ignore=shutil.ignore_patterns(*SNAPSHOT_EXCLUDE))
+        src_root = Path(src).resolve()
+
+        def ignore(d, names):  # Ausschluss nur auf oberster Ebene des Brands (assets/reference/ o. ä. bleibt erhalten)
+            return [n for n in names if Path(d).resolve() == src_root and n in SNAPSHOT_EXCLUDE]
+
+        shutil.copytree(src, dst, ignore=ignore, symlinks=True)
+        for p in list(dst.rglob("*")):                  # Symlinks nie ins Deck übernehmen (würden Ziele fremder Dateien offenlegen)
+            if p.is_symlink():
+                p.unlink()
     bt.build(dst.resolve(), deck / "theme" / "theme.css")
 
 
@@ -168,26 +225,32 @@ def cmd_new(a):
     slug = a.slug or slugify(title)
     if not slug:
         die("aus dem Titel ließ sich kein Dateiname ableiten, --slug angeben")
+    check_name(slug, "Deck-Name")
     parent = Path(a.dir).expanduser() if a.dir else Path.cwd()
     deck = (parent / slug).resolve()
     if deck.exists():
         die(f"{deck} existiert bereits")
     src = bt.resolve(a.brand, None)
-    deck.mkdir(parents=True)
-    (deck / "assets").mkdir()
-    (deck / "assets" / ".gitkeep").write_text("")
-    snapshot_brand(src, deck)
-    brand_meta = json.loads((deck / "theme" / "brand" / "brand.json").read_text())
-    theme = brand_meta["name"]
-    size_line = f"size: {brand_meta['size']['name']}\n" if brand_meta.get("size") else ""
-    now = time.localtime()
-    (deck / "marp.config.mjs").write_text(CONFIG)
-    (deck / ".gitignore").write_text(DECK_GITIGNORE)
-    (deck / f"{slug}.md").write_text(DECK_TEMPLATE.format(
-        theme=theme, size_line=size_line, title=title.replace('"', "'"), date=f"{MONTHS[now.tm_mon - 1]} {now.tm_year}"))
+    deck.mkdir(parents=True)                       # existierte vorher nicht (oben geprüft) → bei Fehlern wieder entfernen
+    try:
+        (deck / "assets").mkdir()
+        (deck / "assets" / ".gitkeep").write_text("")
+        snapshot_brand(src, deck)
+        brand_meta = json.loads((deck / "theme" / "brand" / "brand.json").read_text())
+        theme = brand_meta["name"]
+        size_line = f"size: {brand_meta['size']['name']}\n" if brand_meta.get("size") else ""
+        now = time.localtime()
+        (deck / "marp.config.mjs").write_text(CONFIG)
+        (deck / ".gitignore").write_text(DECK_GITIGNORE)
+        (deck / f"{slug}.md").write_text(DECK_TEMPLATE.format(
+            theme=theme, size_line=size_line, title=yaml_text(title), title_md=" ".join(title.split()),
+            date=f"{MONTHS[now.tm_mon - 1]} {now.tm_year}"))
+    except BaseException:
+        shutil.rmtree(deck, ignore_errors=True)
+        raise
     print(f"Deck angelegt: {deck}")
     print(f"  Quelle:  {deck / (slug + '.md')}")
-    print(f"  Brand:   {theme} (Snapshot in theme/brand/)")
+    print(f"  Brand:   {theme} (aus {src}; Snapshot in theme/brand/)")
     print(f"  Vorschau: {Path(sys.argv[0]).name} serve {deck}")
 
 
@@ -210,13 +273,19 @@ def http_ok(url, timeout=2):
 
 
 def read_state(deck):
+    """serve.json lesen und strikt validieren (Datei kann aus einem fremden Archiv stammen)."""
     f = deck / ".marp-deck" / "serve.json"
-    if f.is_file():
-        try:
-            return json.loads(f.read_text())
-        except ValueError:
-            return None
-    return None
+    if not f.is_file():
+        return None
+    try:
+        st = json.loads(f.read_text())
+        pid, port = st["pid"], st["port"]
+    except (ValueError, KeyError, TypeError):
+        return None
+    if not (isinstance(pid, int) and not isinstance(pid, bool) and pid > 1 and isinstance(port, int)
+            and not isinstance(port, bool) and 1 <= port <= 65535):
+        return None
+    return {"pid": pid, "port": port, "url": f"http://localhost:{port}/{quote(deck_md(deck).name)}"}
 
 
 def pid_alive(pid):
@@ -227,14 +296,25 @@ def pid_alive(pid):
         return False
 
 
+def is_our_server(pid):
+    """PID gehört wirklich zu einem von uns gestarteten marp-cli-Server (Schutz vor recycelten PIDs und fremden Zuständen)."""
+    try:
+        cmd = Path(f"/proc/{pid}/cmdline").read_bytes().replace(b"\0", b" ").decode(errors="replace")
+        return "marp" in cmd and os.getpgid(pid) == pid
+    except OSError:
+        return False
+
+
 def cmd_serve(a):
     deck = find_deck(a.deck)
+    if not a.stop:
+        ensure_trusted_config(deck, a.trust_config)
     state_dir = deck / ".marp-deck"
     state = read_state(deck)
-    running = bool(state) and pid_alive(state["pid"]) and http_ok(f"http://127.0.0.1:{state['port']}/")
+    running = bool(state) and pid_alive(state["pid"]) and is_our_server(state["pid"]) and http_ok(f"http://127.0.0.1:{state['port']}/")
 
     if a.stop:
-        if state and pid_alive(state["pid"]):
+        if state and pid_alive(state["pid"]) and is_our_server(state["pid"]):
             try:
                 os.killpg(state["pid"], signal.SIGTERM)
             except OSError:
@@ -245,7 +325,7 @@ def cmd_serve(a):
                 time.sleep(0.1)
             print(f"Server gestoppt (Port {state['port']})")
         else:
-            print("Kein Server aktiv")
+            print("Kein Server aktiv" + (" (veralteter oder fremder Zustand ignoriert)" if state else ""))
         (state_dir / "serve.json").unlink(missing_ok=True)
         return
 
@@ -255,10 +335,13 @@ def cmd_serve(a):
         return
 
     port = a.port or free_port(8080)
+    with socket.socket() as probe:
+        if probe.connect_ex(("127.0.0.1", port)) == 0:
+            die(f"Port {port} ist belegt")
     state_dir.mkdir(exist_ok=True)
     env = marp_env()
     env["PORT"] = str(port)
-    env["NODE_OPTIONS"] = (env.get("NODE_OPTIONS", "") + f" --require {HERE / 'bind-localhost.cjs'}").strip()
+    env["NODE_OPTIONS"] = (env.get("NODE_OPTIONS", "") + f' --require "{HERE / "bind-localhost.cjs"}"').strip()
     log = open(state_dir / "serve.log", "w")
     proc = subprocess.Popen(marp_cmd() + ["-c", "marp.config.mjs", "-s", "."], cwd=deck, env=env,
                             stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
@@ -267,7 +350,7 @@ def cmd_serve(a):
     while time.time() < deadline:
         if proc.poll() is not None:
             die(f"Server beendet sich (Exit {proc.returncode}), siehe {state_dir / 'serve.log'}")
-        if http_ok(base):
+        if http_ok(base) and proc.poll() is None:   # antwortet unser eigener Prozess (nicht ein Fremdserver auf demselben Port)?
             break
         time.sleep(0.5)
     else:
@@ -321,6 +404,7 @@ def inline_local_assets(html, deck):
 
 def cmd_export(a):
     deck = find_deck(a.deck)
+    ensure_trusted_config(deck, a.trust_config)
     md = deck_md(deck)
     ext = a.format
     out = Path(a.output).expanduser().resolve() if a.output else deck / "dist" / f"{md.stem}.{ext}"
@@ -391,11 +475,14 @@ def cmd_pack(a):
                 "created": datetime.now(timezone.utc).isoformat(timespec="seconds"), "files": len(files)}
     out.parent.mkdir(parents=True, exist_ok=True)
     tmp = out.with_suffix(out.suffix + ".tmp")
-    with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as z:
-        z.writestr("manifest.json", json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")
-        for p in files:
-            z.write(p, f"{deck.name}/{p.relative_to(deck).as_posix()}")
-    tmp.replace(out)
+    try:
+        with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED, strict_timestamps=False) as z:   # mtime vor 1980 erlauben
+            z.writestr("manifest.json", json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")
+            for p in files:
+                z.write(p, f"{deck.name}/{p.relative_to(deck).as_posix()}")
+        tmp.replace(out)
+    finally:
+        tmp.unlink(missing_ok=True)
     print(f"{out} ({out.stat().st_size / 1024:.0f} KB, {len(files)} Dateien, Brand '{brand}')")
     if (deck / "theme" / "brand" / "fonts").is_dir():
         print("Hinweis: das Deck enthält Schriftdateien — Lizenz prüfen, bevor du es weitergibst.")
@@ -435,6 +522,9 @@ def cmd_unpack(a):
         for i in infos:
             if not i.filename.startswith(name + "/"):
                 die(f"Eintrag außerhalb von {name}/: {i.filename!r}")
+            rel_parts = i.filename[len(name) + 1:].split("/")
+            if rel_parts[0] in PACK_SKIP_DIRS:      # Zustand/Build/Git gehören nicht in ein weitergegebenes Deck
+                continue
             if (i.external_attr >> 16) & 0o170000 == 0o120000:
                 die(f"Symlink im Archiv abgelehnt: {i.filename!r}")
             try:
@@ -451,6 +541,9 @@ def cmd_unpack(a):
                     dest.mkdir(parents=True, exist_ok=True)
                     continue
                 dest.parent.mkdir(parents=True, exist_ok=True)
+                if i.filename == f"{name}/marp.config.mjs":     # nie fremden Code übernehmen: Standard-Config statt Archivinhalt
+                    dest.write_text(CONFIG)
+                    continue
                 with z.open(i) as fin, open(dest, "wb") as fout:
                     while chunk := fin.read(1 << 20):
                         written += len(chunk)
@@ -497,13 +590,15 @@ def cmd_import_deck(a):
             md, roots = di.convert(src, tool, tmp)
             frontmatter, _ = di.split_frontmatter((deck / f"{slug}.md").read_text())
             text, info = di.build_markdown(md.read_text(), frontmatter + "\n", roots, deck / "assets")
-    except (di.DeckImportError, subprocess.TimeoutExpired) as e:
+    except Exception as e:                           # auch unerwartete Fehler (OSError, …): angelegtes Deck wieder entfernen
         shutil.rmtree(deck, ignore_errors=True)        # das Deck wurde in diesem Lauf angelegt (new lehnt vorhandene Ordner ab)
-        die(str(e))
+        die(str(e) if isinstance(e, di.DeckImportError) else f"{type(e).__name__}: {e}")
     (deck / f"{slug}.md").write_text(text)
     print(f"{info['slides']} Folien aus {src.name} übernommen → {deck / (slug + '.md')}")
     print("  Übernommen: Titel, Text, Listen, Tabellen, Bilder, Sprechernotizen. Nicht übernommen: Layout, Diagramme, SmartArt, Animationen.")
     print("  Alle Folien nutzen die Standard-Inhaltsklasse; Abschnitte (`section`), Spalten (`cols`) und Abschluss (`closing`) ordnest du danach zu.")
+    if info["blocked_refs"]:
+        print(f"  WARNUNG: {len(info['blocked_refs'])} Verweis(e) mit unzulässigem Schema entfernt: {', '.join(info['blocked_refs'][:5])}", file=sys.stderr)
     if info["missing_images"]:
         print(f"  WARNUNG: {len(info['missing_images'])} Bild(er) nicht gefunden: {', '.join(info['missing_images'][:5])}", file=sys.stderr)
 
@@ -527,15 +622,36 @@ def cmd_brand(a):
         bi = _load("brand_import")
         if not a.name:
             die("--name angeben")
+        check_name(a.name, "Brand-Name")
         out = Path(a.out).expanduser() if a.out else brand_store() / a.name
         existed = out.exists()   # nur aufräumen, was dieser Lauf selbst angelegt hat
+        replacing = existed and any(out.iterdir()) and a.replace
+        target = out.with_name(f"{out.name}.neu-{os.getpid()}") if replacing else out
         try:
-            res = bi.import_brand(a.target, a.name, out, a.backgrounds, not a.no_render, dict(m.split("=", 1) for m in a.map),
+            res = bi.import_brand(a.target, a.name, target, a.backgrounds, not a.no_render, dict(m.split("=", 1) for m in a.map),
                                   a.guidelines, a.fonts, a.reference)
-        except (bi.ImportError_, bi.px.PptxError, bi.sc.ShowcaseError) as e:
-            if not existed:
-                shutil.rmtree(out, ignore_errors=True)
-            die(str(e))
+            if replacing:
+                for keep in ("custom.css", "GUIDELINES.md"):          # Handarbeit übernehmen
+                    if (out / keep).is_file() and not (target / keep).exists():
+                        shutil.copy2(out / keep, target / keep)
+                for keep_dir in ("guidelines", "fonts"):
+                    if (out / keep_dir).is_dir() and not (target / keep_dir).exists():
+                        shutil.copytree(out / keep_dir, target / keep_dir, symlinks=True)
+                old_meta = json.loads((out / "brand.json").read_text())
+                new_meta = json.loads((target / "brand.json").read_text())
+                if old_meta.get("fonts") and not new_meta.get("fonts"):
+                    new_meta["fonts"] = old_meta["fonts"]
+                    (target / "brand.json").write_text(json.dumps(new_meta, indent=2, ensure_ascii=False) + "\n")
+                backup = out.with_name(f"{out.name}.bak-{time.strftime('%Y%m%d-%H%M%S')}")
+                out.rename(backup)
+                target.rename(out)
+                res["dir"] = str(out)
+                print(f"Vorhandener Brand gesichert: {backup}")
+        except Exception as e:   # auch unerwartete Fehler: keine halbfertigen Brands hinterlassen
+            if replacing or not existed:
+                shutil.rmtree(target, ignore_errors=True)
+            msg = str(e) if isinstance(e, (bi.ImportError_, bi.px.PptxError, bi.sc.ShowcaseError)) else f"{type(e).__name__}: {e}"
+            die(msg + ("\n  (Tipp: --replace ersetzt einen vorhandenen Brand und sichert den alten)" if "nicht leer" in msg else ""))
         print(f"Brand '{res['name']}' angelegt: {res['dir']}")
         print(f"  Hintergründe: {'gerendert (pixelgenau)' if res['mode'] == 'render' else 'aus Grafiken rekonstruiert (angenähert)'}")
         for layout, classes in res["classes"].items():
@@ -600,13 +716,19 @@ def main():
     s.add_argument("deck", nargs="?")
     s.add_argument("--port", type=int)
     s.add_argument("--stop", action="store_true")
+    s.add_argument("--trust-config", action="store_true", help="abweichende marp.config.mjs ausführen (Code!)")
     s.set_defaults(fn=cmd_serve)
 
     e = sp.add_parser("export", help="als pdf, html oder pptx exportieren")
     e.add_argument("format", choices=["pdf", "html", "pptx"])
     e.add_argument("deck", nargs="?")
     e.add_argument("-o", "--output")
+    e.add_argument("--trust-config", action="store_true", help="abweichende marp.config.mjs ausführen (Code!)")
     e.set_defaults(fn=cmd_export)
+
+    rc = sp.add_parser("repair-config", help="Standard-marp.config.mjs wiederherstellen")
+    rc.add_argument("deck", nargs="?")
+    rc.set_defaults(fn=cmd_repair_config)
 
     b = sp.add_parser("brand", help="Brands auflisten, importieren (PPTX), vergleichen, Deck-Snapshot aktualisieren")
     b.add_argument("sub", choices=["list", "sync", "showcase", "import", "preview", "compare"])
@@ -614,6 +736,7 @@ def main():
     b.add_argument("--name"); b.add_argument("--out"); b.add_argument("--backgrounds"); b.add_argument("--reference")
     b.add_argument("--guidelines", action="append", default=[]); b.add_argument("--fonts")
     b.add_argument("--map", action="append", default=[]); b.add_argument("--no-render", action="store_true")
+    b.add_argument("--replace", action="store_true", help="vorhandenen Brand ersetzen (alter wird gesichert, custom.css/GUIDELINES.md/fonts bleiben)")
     b.set_defaults(fn=lambda a: (setattr(a, "deck", a.target), cmd_brand(a)))
 
     ii = sp.add_parser("import-deck", help="bestehende PPTX-Präsentation als Marp-Deck übernehmen (braucht pptx2md)")

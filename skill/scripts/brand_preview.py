@@ -13,6 +13,11 @@ from common import run_marp  # noqa: E402
 from pptx_showcase import SAMPLE  # noqa: E402
 
 
+def md_safe(text):
+    """Layoutnamen (aus fremden Dateien) dürfen im Vorschau-Deck kein Markup/HTML erzeugen."""
+    return re.sub(r"\s+", " ", re.sub(r"[\x00-\x1f\x7f<>&\"'`*/\\\[\]{}()$#@|]", "", text or "")).strip()[:80] or "Layout"
+
+
 def lines_html(lines):
     return "<br>".join(lines)
 
@@ -24,7 +29,7 @@ def entry_markdown(e, mode):
         out.append(f"<!-- _class: {cls} -->\n")
     compare = mode == "compare"
     if e["title"]:
-        out.append(f"# {SAMPLE['title'] if compare else 'Beispieltitel: ' + e['layout']}\n")
+        out.append(f"# {SAMPLE['title'] if compare else 'Beispieltitel: ' + md_safe(e['layout'])}\n")
     if e["subtitle"]:
         if e["sub_role"] == "body":
             out.append(f"## {lines_html(SAMPLE['body']) if compare else '1'}\n")

@@ -43,7 +43,8 @@ add("ok" if chrome else "FEHLT", "chrome/chromium", chrome or "nicht gefunden �
 
 for tool, why in [("soffice", "LibreOffice: PPTX-Layouts als Hintergrund rendern (CI-Import, optional)"),
                   ("pdftocairo", "PDF → SVG/PNG für CI-Import (optional)"),
-                  ("montage", "ImageMagick: Kontaktbögen/Differenzbilder (optional)"),
+                  ("montage", "ImageMagick: Kontaktbögen (optional)"),
+                  ("compare", "ImageMagick: Abweichung messen für brand compare (optional)"),
                   ("fc-list", "Schriftprüfung (optional)")]:
     p = shutil.which(tool)
     add("ok" if p else "warn", tool, p or f"nicht gefunden — {why}")

@@ -31,6 +31,30 @@ class PptxError(Exception):
     pass
 
 
+HEX6 = re.compile(r"^[0-9a-fA-F]{6}$")
+FONT_BAD = re.compile(r"[^\w .+\-]", re.UNICODE)
+NAME_BAD = re.compile(r"[\x00-\x1f\x7f<>&\"'`*/\\\[\]{}()$#@|]")
+
+
+def safe_hex(val, default="000000"):
+    """Farbwerte aus der Datei: nur genau sechs Hexziffern (sonst landet Fremdtext in tokens.css)."""
+    return val if isinstance(val, str) and HEX6.match(val) else default
+
+
+def safe_font(name):
+    """Schriftnamen: nur Buchstaben, Ziffern, Leerzeichen, . + - (sonst CSS-Injektion über font-family)."""
+    if not isinstance(name, str):
+        return None
+    cleaned = FONT_BAD.sub("", name).strip()[:80]
+    return cleaned or None
+
+
+def safe_text(name, fallback="Layout"):
+    """Namen aus der Datei für Markdown/CSS-Kommentare/Doku: Steuer- und Markup-Zeichen entfernen."""
+    cleaned = NAME_BAD.sub("", re.sub(r"\s+", " ", name or "")).strip()[:80]
+    return cleaned or fallback
+
+
 def q(tag):
     pfx, name = tag.split(":")
     return "{%s}%s" % (NS[pfx], name)
@@ -74,8 +98,12 @@ class Package:
         info = self.z.getinfo(name)
         if info.file_size > MAX_XML:
             raise PptxError(f"{name}: XML zu groß")
-        # defusedxml ist nicht in der Standardbibliothek; ElementTree löst keine externen Entities auf.
-        return ET.fromstring(self.z.read(name))
+        # defusedxml ist nicht in der Standardbibliothek; Pythons expat löst keine externen Entitäten auf und begrenzt die
+        # Erweiterung interner Entitäten (XML-Bomben). Fehler werden hier in eine verständliche Meldung übersetzt.
+        try:
+            return ET.fromstring(self.z.read(name))
+        except ET.ParseError as e:
+            raise PptxError(f"{name}: kein gültiges XML ({e})") from e
 
     def read(self, name):
         name = name.lstrip("/")
@@ -148,13 +176,13 @@ class Theme:
             if child is None:
                 continue
             if child.tag.endswith("srgbClr"):
-                self.colors[name] = "#" + child.get("val").lower()
+                self.colors[name] = "#" + safe_hex(child.get("val")).lower()
             elif child.tag.endswith("sysClr"):
-                self.colors[name] = "#" + (child.get("lastClr") or "000000").lower()
+                self.colors[name] = "#" + safe_hex(child.get("lastClr")).lower()
         fs = find(root, "a:themeElements/a:fontScheme")
         for kind in ("major", "minor"):
             latin = find(fs, f"a:{kind}Font/a:latin")
-            self.fonts[kind] = latin.get("typeface") if latin is not None else None
+            self.fonts[kind] = safe_font(latin.get("typeface")) if latin is not None else None
         self.fmt_bg = [list(e) for e in findall(root, "a:themeElements/a:fmtScheme/a:bgFillStyleLst")]
 
 
@@ -165,9 +193,9 @@ def color_of(el, theme, clrmap):
     tag = el.tag.split("}")[1]
     hexc = None
     if tag == "srgbClr":
-        hexc = "#" + el.get("val", "000000").lower()
+        hexc = "#" + safe_hex(el.get("val")).lower()
     elif tag == "sysClr":
-        hexc = "#" + (el.get("lastClr") or "000000").lower()
+        hexc = "#" + safe_hex(el.get("lastClr")).lower()
     elif tag == "prstClr":
         hexc = "#" + PRST_COLORS.get(el.get("val", ""), "000000")
     elif tag == "schemeClr":
@@ -241,7 +269,7 @@ def font_name(face, theme):
         return theme.fonts.get("major")
     if face and face.startswith("+mn"):
         return theme.fonts.get("minor")
-    return face
+    return safe_font(face)
 
 
 def lvl1_props(lststyle, theme, clrmap):
@@ -478,12 +506,21 @@ def text_styles(master_root, theme, clrmap):
 # ── Hauptfunktion ──────────────────────────────────────────────────────────
 
 def extract(path):
+    try:
+        return _extract(path)
+    except (KeyError, ValueError, AttributeError, IndexError, TypeError) as e:
+        raise PptxError(f"Datei hat eine unerwartete Struktur ({type(e).__name__}: {e}) — keine gültige Vorlage?") from e
+
+
+def _extract(path):
     pkg = Package(path)
     pres = pkg.xml("ppt/presentation.xml")
     if pres is None:
         raise PptxError("ppt/presentation.xml fehlt — keine PowerPoint-Datei")
     sz = find(pres, "p:sldSz")
     w, h = int(sz.get("cx")), int(sz.get("cy"))
+    if w <= 0 or h <= 0:
+        raise PptxError("ungültige Foliengröße (sldSz)")
     slide = Slide(w, h)
     pres_rels = pkg.rels("ppt/presentation.xml")
 
@@ -522,7 +559,7 @@ def extract(path):
                 lctx["clrmap"] = dict(cm_over.attrib)
             ltree = find(lroot, "p:cSld/p:spTree")
             layouts.append({
-                "file": lf, "name": find(lroot, "p:cSld").get("name") or posixpath.basename(lf),
+                "file": lf, "name": safe_text(find(lroot, "p:cSld").get("name") or posixpath.basename(lf)),
                 "type": lroot.get("type"), "master": len(masters) - 1,
                 "show_master_shapes": lroot.get("showMasterSp") != "0",
                 "bg": bg_of(lroot, lctx), "shapes": parse_shapes(ltree, lctx)})

@@ -88,6 +88,32 @@ class Extract(Base):
         with self.assertRaises(px.PptxError):
             px.extract(nopres)
 
+    def _with_presentation_xml(self, name, xml):
+        evil = self.t / name
+        with zipfile.ZipFile(self.pptx) as zin, zipfile.ZipFile(evil, "w") as zout:
+            for n in zin.namelist():
+                zout.writestr(n, xml if n == "ppt/presentation.xml" else zin.read(n))
+        return evil
+
+    def test_xml_bomb_rejected_cleanly(self):
+        """Billion-Laughs: expat begrenzt die Erweiterung; der Fehler muss als PptxError (nicht als Traceback) ankommen."""
+        ents = "".join(f'<!ENTITY lol{i} "' + (f"&lol{i - 1};" if i > 1 else "lol") * 10 + '">' for i in range(1, 10))
+        bomb = (f'<?xml version="1.0"?><!DOCTYPE x [{ents}]><p:presentation xmlns:p="urn:p">&lol9;</p:presentation>')
+        with self.assertRaises(px.PptxError):
+            px.extract(self._with_presentation_xml("bombe.pptx", bomb))
+
+    def test_external_entity_not_resolved(self):
+        xxe = '<?xml version="1.0"?><!DOCTYPE x [<!ENTITY e SYSTEM "file:///etc/hostname">]><p:presentation xmlns:p="urn:p">&e;</p:presentation>'
+        with self.assertRaises(px.PptxError):
+            px.extract(self._with_presentation_xml("xxe.pptx", xxe))
+
+    def test_unexpected_structure_is_a_clean_error(self):
+        broken = ('<p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" '
+                  'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+                  '<p:sldMasterIdLst><p:sldMasterId id="1" r:id="rIdGibtsNicht"/></p:sldMasterIdLst></p:presentation>')
+        with self.assertRaises(px.PptxError):
+            px.extract(self._with_presentation_xml("kaputt-struktur.pptx", broken))
+
     def test_43_aspect(self):
         d = px.extract(tf.build(self.t / "v43.pptx", aspect="4:3"))
         self.assertAlmostEqual(d["slide"]["aspect"], 1.3333, places=3)
@@ -141,6 +167,42 @@ class Showcase(Base):
         pres = ('<pr:presentation xmlns:pr="urn:p"><pr:sldMasterIdLst><pr:sldMasterId id="1"/></pr:sldMasterIdLst><pr:sldSz/></pr:presentation>')
         out = sc.insert_sld_id_lst(pres, [(256, "rId9")])
         self.assertIn("<pr:sldIdLst>", out); self.assertIn("</pr:sldIdLst>", out)
+
+    def test_no_remnants_of_original_slides(self):
+        """Regression (Review): Vorschaubild, Folientitel in app.xml, Kommentare und nur von Folien genutzte Medien blieben im Showcase."""
+        src = tf.build(self.t / "reste.pptx", slides=True, remnants=True)
+        with zipfile.ZipFile(src) as z:
+            blob = b"".join(z.read(n) for n in z.namelist())
+        self.assertIn(tf.SECRET.encode(), blob)                      # Voraussetzung: die Reste sind in der Quelle
+        for filled in (False, True):
+            out = self.t / f"reste-show-{filled}.pptx"
+            sc.build(src, out, filled=filled)
+            with zipfile.ZipFile(out) as z:
+                self.assertIsNone(z.testzip())
+                names = z.namelist()
+                data = b"".join(z.read(n) for n in names)
+            self.assertNotIn(tf.SECRET.encode(), data)
+            for gone in ("docProps/thumbnail.jpeg", "ppt/comments/comment1.xml", "ppt/commentAuthors.xml",
+                         "ppt/media/nur-folie.png", "ppt/embeddings/tabelle.bin"):
+                self.assertNotIn(gone, names)
+            self.assertIn("ppt/media/logo.png", names)                # vom Layout genutzt: bleibt
+            ct = zipfile.ZipFile(out).read("[Content_Types].xml").decode()
+            for name in re.findall(r'PartName="/([^"]+)"', ct):       # keine Overrides auf entfernte Teile
+                self.assertIn(name, names)
+            self.assertEqual(len(px.extract(out)["layouts"]), 6)
+
+    def test_showcase_limits(self):
+        old_e, old_b = sc.MAX_ENTRIES, sc.MAX_BYTES
+        try:
+            sc.MAX_ENTRIES = 3
+            with self.assertRaises(sc.ShowcaseError):
+                sc.build(self.pptx, self.t / "z1.pptx")
+            sc.MAX_ENTRIES, sc.MAX_BYTES = old_e, 100
+            with self.assertRaises(sc.ShowcaseError):
+                sc.build(self.pptx, self.t / "z2.pptx")
+        finally:
+            sc.MAX_ENTRIES, sc.MAX_BYTES = old_e, old_b
+        self.assertFalse((self.t / "z1.pptx").exists())
 
     def test_existing_slides_removed(self):
         out1 = self.t / "a.pptx"; sc.build(self.pptx, out1)

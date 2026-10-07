@@ -21,7 +21,7 @@ import pptx_showcase as sc  # noqa: E402
 
 SLIDE_W, SLIDE_H = 1280, 720
 SERIF = ("georgia", "times", "cambria", "garamond", "palatino", "book antiqua", "constantia", "baskerville", "minion")
-CLOSING_RE = re.compile(r"(clos|end|thank|danke|abschluss|schluss|ende|kontakt|contact|fragen|questions)", re.I)
+CLOSING_RE = re.compile(r"\b(clos(e|ing)|end|ende|thanks?|thank you|danke|abschluss|schluss|kontakt|contact|fragen|questions)\b", re.I)
 
 
 class ImportError_(Exception):
@@ -29,6 +29,11 @@ class ImportError_(Exception):
 
 
 # ── Hilfen ─────────────────────────────────────────────────────────────────
+
+def natural_sorted(paths):
+    """Natürliche Sortierung (2.png vor 10.png) — gemeinsam für Hintergründe und Referenzbilder."""
+    return sorted(paths, key=lambda p: [int(x) if x.isdigit() else x.lower() for x in re.split(r"(\d+)", Path(p).name)])
+
 
 def slugify(name):
     s = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode().lower()
@@ -420,7 +425,8 @@ def render_with_libreoffice(pptx, tmp, filled=False):
     Path(tmp).mkdir(parents=True, exist_ok=True)
     show = Path(tmp) / "showcase.pptx"
     sc.build(pptx, show, filled=filled)
-    r = subprocess.run([soffice, "--headless", "--convert-to", "pdf", "--outdir", str(tmp), str(show)],
+    profile = Path(tmp) / "lo-profile"                       # eigenes Profil: stört und hängt nicht an einem geöffneten LibreOffice
+    r = subprocess.run([soffice, f"-env:UserInstallation={profile.as_uri()}", "--headless", "--convert-to", "pdf", "--outdir", str(tmp), str(show)],
                        capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=300)
     pdf = Path(tmp) / "showcase.pdf"
     return pdf if pdf.is_file() else None
@@ -430,6 +436,12 @@ def render_with_libreoffice(pptx, tmp, filled=False):
 
 def import_brand(pptx, name, out_dir, backgrounds=None, render=True, mapping=None, guidelines=(), fonts_dir=None, reference=None):
     pptx, out_dir = Path(pptx), Path(out_dir)
+    for g in guidelines:                                   # Eingaben prüfen, bevor etwas geschrieben wird
+        if not Path(g).is_file():
+            raise ImportError_(f"--guidelines: {g} nicht gefunden")
+    for label, path in (("--backgrounds", backgrounds), ("--reference", reference), ("--fonts", fonts_dir)):
+        if path and not Path(path).exists():
+            raise ImportError_(f"{label}: {path} nicht gefunden")
     data = px.extract(pptx)
     warnings = []
     if out_dir.exists() and any(out_dir.iterdir()):
@@ -452,8 +464,7 @@ def import_brand(pptx, name, out_dir, backgrounds=None, render=True, mapping=Non
             if b.suffix.lower() == ".pdf":
                 files = pdf_to_pngs(b, tmp, sc_.w)
             elif b.is_dir():
-                files = sorted([p for p in b.iterdir() if p.suffix.lower() == ".png"],
-                               key=lambda p: [int(t) if t.isdigit() else t for t in re.split(r"(\d+)", p.name)])
+                files = natural_sorted([p for p in b.iterdir() if p.suffix.lower() == ".png"])
             else:
                 raise ImportError_(f"--backgrounds: {b} ist weder PDF noch Ordner mit PNGs")
         elif render:
@@ -465,7 +476,7 @@ def import_brand(pptx, name, out_dir, backgrounds=None, render=True, mapping=Non
         ref_files = None
         if reference:
             r = Path(reference)
-            ref_files = pdf_to_pngs(r, tmp / "ref", sc_.w) if r.suffix.lower() == ".pdf" else sorted(r.glob("*.png"))
+            ref_files = pdf_to_pngs(r, tmp / "ref", sc_.w) if r.suffix.lower() == ".pdf" else natural_sorted(r.glob("*.png"))
         elif render and not backgrounds:
             pdf = render_with_libreoffice(pptx, tmp / "ref", filled=True)
             ref_files = pdf_to_pngs(pdf, tmp / "ref", sc_.w) if pdf else None
@@ -491,9 +502,14 @@ def import_brand(pptx, name, out_dir, backgrounds=None, render=True, mapping=Non
             if not target:
                 return None
             if target not in media_map:
-                pkg = px.Package(pptx)
+                try:
+                    data_ = px.Package(pptx).read(target)
+                except KeyError:
+                    warnings.append(f"Medium {target} fehlt im Paket — übersprungen")
+                    media_map[target] = None
+                    return None
                 dst = out_dir / "assets" / "media" / Path(target).name
-                dst.write_bytes(pkg.read(target))
+                dst.write_bytes(data_)
                 media_map[target] = f"assets/media/{dst.name}"
             return media_map[target]
 

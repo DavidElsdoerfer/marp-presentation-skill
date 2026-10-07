@@ -107,56 +107,112 @@ def insert_sld_id_lst(pres, ids):
     return pres[:at] + f"<{pfx}sldIdLst>{body}</{pfx}sldIdLst>" + pres[at:]
 
 
+MAX_ENTRIES = 5000
+MAX_BYTES = 256 * 1024 * 1024
+DROP_PREFIXES = ("ppt/slides/", "ppt/notesSlides/", "ppt/comments/", "ppt/commentAuthors", "ppt/authors", "docProps/thumbnail")
+DROP_REL_TYPE = re.compile(r'<Relationship [^>]*Type="[^"]*/(slide|commentAuthors|authors|thumbnail)"[^>]*/>')
+
+
+def rel_targets(part, rels_xml):
+    """Interne Ziele einer .rels-Datei als absolute Paketpfade."""
+    base = posixpath.dirname(part)
+    out = []
+    for m in re.finditer(r"<Relationship\s[^>]*>", rels_xml):
+        tag = m.group(0)
+        if re.search(r'TargetMode="External"', tag):
+            continue
+        t = re.search(r'Target="([^"]*)"', tag)
+        if not t:
+            continue
+        target = t.group(1)
+        out.append(target.lstrip("/") if target.startswith("/") else posixpath.normpath(posixpath.join(base, target)))
+    return out
+
+
+def rels_name(part):
+    d, f = posixpath.split(part)
+    return posixpath.join(d, "_rels", f + ".rels")
+
+
+def source_of(rels):
+    """Teil, zu dem eine .rels-Datei gehört ('_rels/.rels' → Paketstamm '')."""
+    d, f = posixpath.split(rels)
+    return "" if f == ".rels" else posixpath.join(posixpath.dirname(d), f[:-5])
+
+
+def reachable(parts):
+    """Alle Teile, die vom Paketstamm (_rels/.rels) aus erreichbar sind. Alles andere (Medien, Einbettungen, Diagramme,
+    die nur von entfernten Folien genutzt wurden) fällt weg."""
+    keep, queue = {"[Content_Types].xml", "_rels/.rels"}, ["_rels/.rels"]
+    while queue:
+        rels = queue.pop()
+        for target in rel_targets(source_of(rels), parts[rels].decode("utf-8", "replace")):
+            if target in parts and target not in keep:
+                keep.add(target)
+                r = rels_name(target)
+                if r in parts and r not in keep:
+                    keep.add(r)
+                    queue.append(r)
+    return keep
+
+
 def build(src, dst, filled=False):
     src, dst = Path(src), Path(dst)
     with zipfile.ZipFile(src) as zin:
+        infos = [i for i in zin.infolist() if not i.is_dir()]
+        if len(infos) > MAX_ENTRIES:
+            raise ShowcaseError(f"zu viele Einträge im Paket ({len(infos)} > {MAX_ENTRIES})")
+        if sum(i.file_size for i in infos) > MAX_BYTES:
+            raise ShowcaseError("Paket ist entpackt zu groß")
         layouts = layout_order(zin)
         if not layouts:
             raise ShowcaseError("keine Layouts gefunden")
-        names = [i.filename for i in zin.infolist()]
-        drop = {n for n in names if n.startswith(("ppt/slides/", "ppt/notesSlides/"))}
-        pres = zin.read("ppt/presentation.xml").decode("utf-8")
-        prels = zin.read("ppt/_rels/presentation.xml.rels").decode("utf-8")
-        ctypes = zin.read("[Content_Types].xml").decode("utf-8")
+        parts = {i.filename: zin.read(i.filename) for i in infos}
 
-        # vorhandene Folien (und deren Notizen) entfernen
-        prels = re.sub(r'<Relationship [^>]*Type="[^"]*/relationships/slide"[^>]*/>', "", prels)
-        ctypes = re.sub(r'<Override [^>]*PartName="/ppt/(slides|notesSlides)/[^"]*"[^>]*/>', "", ctypes)
-        pres = re.sub(r"<p:sldIdLst>.*?</p:sldIdLst>|<p:sldIdLst/>", "", pres, flags=re.S)
+    # Folien, Notizen, Kommentare, Vorschaubild und die zugehörigen Beziehungen entfernen
+    parts = {n: d for n, d in parts.items()
+             if not n.startswith(DROP_PREFIXES) and not re.match(r"ppt/(slides|notesSlides|comments)/_rels/", n)}
+    for n in ("ppt/_rels/presentation.xml.rels", "_rels/.rels"):
+        if n in parts:
+            parts[n] = DROP_REL_TYPE.sub("", parts[n].decode("utf-8")).encode("utf-8")
+    if "docProps/app.xml" in parts:      # enthält die Folientitel (TitlesOfParts)
+        app = parts["docProps/app.xml"].decode("utf-8")
+        app = re.sub(r"<(?:\w+:)?HeadingPairs>.*?</(?:\w+:)?HeadingPairs>|<(?:\w+:)?TitlesOfParts>.*?</(?:\w+:)?TitlesOfParts>", "", app, flags=re.S)
+        parts["docProps/app.xml"] = app.encode("utf-8")
 
-        used = {int(i) for i in re.findall(r'Id="rId(\d+)"', prels)}
-        nxt = max(used | {0}) + 1
-        ids, new_rels, new_ct = [], [], []
-        for k, lay in enumerate(layouts, start=1):
-            rid = f"rId{nxt}"; nxt += 1
-            ids.append((255 + k, rid))
-            new_rels.append(f'<Relationship Id="{rid}" Type="{REL_T}/slide" Target="slides/slide{k}.xml"/>')
-            new_ct.append(f'<Override PartName="/ppt/slides/slide{k}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>')
-        pres = insert_sld_id_lst(pres, ids)
-        prels = prels.replace("</Relationships>", "".join(new_rels) + "</Relationships>")
-        ctypes = ctypes.replace("</Types>", "".join(new_ct) + "</Types>")
+    pres = parts["ppt/presentation.xml"].decode("utf-8")
+    prels = parts["ppt/_rels/presentation.xml.rels"].decode("utf-8")
+    ctypes = parts["[Content_Types].xml"].decode("utf-8")
+    pres = re.sub(r"<(?:\w+:)?sldIdLst>.*?</(?:\w+:)?sldIdLst>|<(?:\w+:)?sldIdLst/>", "", pres, flags=re.S)
+    used = {int(i) for i in re.findall(r'Id="rId(\d+)"', prels)}
+    nxt = max(used | {0}) + 1
+    ids, new_rels, new_ct = [], [], []
+    for k, lay in enumerate(layouts, start=1):
+        rid = f"rId{nxt}"; nxt += 1
+        ids.append((255 + k, rid))
+        new_rels.append(f'<Relationship Id="{rid}" Type="{REL_T}/slide" Target="slides/slide{k}.xml"/>')
+        new_ct.append(f'<Override PartName="/ppt/slides/slide{k}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>')
+        parts[f"ppt/slides/slide{k}.xml"] = (filled_slide(parts[lay].decode("utf-8")) if filled else SLIDE).encode("utf-8")
+        parts[f"ppt/slides/_rels/slide{k}.xml.rels"] = (HDR + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                                                        f'<Relationship Id="rId1" Type="{REL_T}/slideLayout" Target="{posixpath.relpath(lay, "ppt/slides")}"/>'
+                                                        '</Relationships>').encode("utf-8")
+    parts["ppt/presentation.xml"] = insert_sld_id_lst(pres, ids).encode("utf-8")
+    parts["ppt/_rels/presentation.xml.rels"] = prels.replace("</Relationships>", "".join(new_rels) + "</Relationships>").encode("utf-8")
+    ctypes = re.sub(r'<Override [^>]*PartName="/(?:ppt/(?:slides|notesSlides|comments)/|ppt/commentAuthors|ppt/authors|docProps/thumbnail)[^"]*"[^>]*/>', "", ctypes)
+    parts["[Content_Types].xml"] = ctypes.replace("</Types>", "".join(new_ct) + "</Types>").encode("utf-8")
 
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        with zipfile.ZipFile(dst, "w", zipfile.ZIP_DEFLATED) as zout:
-            for info in zin.infolist():
-                n = info.filename
-                if n in drop or re.match(r"ppt/(slides|notesSlides)/_rels/", n):
-                    continue
-                data = zin.read(n)
-                if n == "ppt/presentation.xml":
-                    data = pres.encode("utf-8")
-                elif n == "ppt/_rels/presentation.xml.rels":
-                    data = prels.encode("utf-8")
-                elif n == "[Content_Types].xml":
-                    data = ctypes.encode("utf-8")
-                # Name statt ZipInfo: writestr(info, …) würde den Header-Offset des Quell-Eintrags überschreiben.
-                zout.writestr(n, data)
-            for k, lay in enumerate(layouts, start=1):
-                zout.writestr(f"ppt/slides/slide{k}.xml", filled_slide(zin.read(lay).decode("utf-8")) if filled else SLIDE)
-                target = posixpath.relpath(lay, "ppt/slides")
-                zout.writestr(f"ppt/slides/_rels/slide{k}.xml.rels", HDR +
-                              '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-                              f'<Relationship Id="rId1" Type="{REL_T}/slideLayout" Target="{target}"/></Relationships>')
+    # Alles entfernen, was vom Paketstamm aus nicht mehr erreichbar ist (verwaiste Medien, Einbettungen, Diagramme …)
+    keep = reachable(parts)
+    parts = {n: d for n, d in parts.items() if n in keep}
+    ct = parts["[Content_Types].xml"].decode("utf-8")
+    ct = re.sub(r'<Override [^>]*PartName="/([^"]+)"[^>]*/>', lambda m: m.group(0) if m.group(1) in parts else "", ct)
+    parts["[Content_Types].xml"] = ct.encode("utf-8")
+
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    order = ["[Content_Types].xml"] + [n for n in parts if n != "[Content_Types].xml"]
+    with zipfile.ZipFile(dst, "w", zipfile.ZIP_DEFLATED) as zout:
+        for n in order:
+            zout.writestr(n, parts[n])
     return len(layouts)
 
 
