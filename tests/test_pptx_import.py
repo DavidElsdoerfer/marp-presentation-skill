@@ -205,6 +205,22 @@ class Import(Base):
             bi.import_brand(self.pptx, "belegt", out, render=False)
         self.assertEqual((out / "x.txt").read_text(), "bleibt")
 
+    def test_deck_snapshot_excludes_originals(self):
+        """Ein weitergegebenes Deck darf die Original-Richtlinien und Referenzbilder nicht enthalten."""
+        g = self.t / "richtlinie-geheim.pdf"; g.write_bytes(b"%PDF vertraulich")
+        store = self.t / "store-snap"
+        env = {**__import__("os").environ, "MARP_BRANDS_DIR": str(store)}
+        out = store / "snap"
+        bi.import_brand(self.pptx, "snap", out, render=False, guidelines=[g])
+        (out / "reference").mkdir(exist_ok=True); (out / "reference" / "01.png").write_bytes(b"png")
+        r = subprocess.run([sys.executable, str(CLI), "new", "Snap Deck", "--brand", "snap", "--dir", str(self.t)], capture_output=True,
+                           text=True, env=env, stdin=subprocess.DEVNULL)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        snap = self.t / "snap-deck" / "theme" / "brand"
+        self.assertFalse((snap / "guidelines").exists()); self.assertFalse((snap / "reference").exists())
+        self.assertTrue((snap / "GUIDELINES.md").is_file())            # die verdichteten Regeln bleiben
+        self.assertTrue((snap / "layouts.css").is_file())
+
     def test_cli_failed_import_keeps_existing_brand(self):
         store = self.t / "store"; (store / "belegt").mkdir(parents=True); (store / "belegt" / "x.txt").write_text("bleibt")
         r = subprocess.run([sys.executable, str(CLI), "brand", "import", str(self.pptx), "--name", "belegt", "--no-render"],

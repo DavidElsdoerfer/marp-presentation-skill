@@ -42,3 +42,6 @@ Marp-Skill mit Brand-System. Ziel und Stand: `README.md`, `ROADMAP.md`.
 - Marpit verwirft `content` auf `section::after`/`::before`; Seitenzahl ausblenden mit `display: none`.
 - Vorlagen-Dateien (PPTX, Logos, Schriften, Richtlinien) nie ins Repo; Tests nutzen `tests/template_factory.py`. Nach Änderungen am Import: `brand compare` mit der synthetischen Vorlage (Abweichung < 12 %, Hintergründe pixelgleich).
 - Beim Import nie Folieninhalt, Notizen oder Kommentare einer Vorlage lesen oder weitergeben.
+- `.deck`-Archive und Brand-Pakete aus fremder Quelle gelten als nicht vertrauenswürdig: `unpack` prüft vor dem Schreiben; Pfadprüfung (`safe_member`) nie umgehen.
+- Brand-Snapshots im Deck enthalten keine `guidelines/` und `reference/` (`SNAPSHOT_EXCLUDE`); neue vertrauliche Brand-Bestandteile dort ausschließen.
+- `pptx2md` ist optional und nie Abhängigkeit; seine Ausgabe wird nachbearbeitet (externe `@import` entfernen).

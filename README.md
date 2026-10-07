@@ -53,6 +53,14 @@ skill/scripts/marp-deck serve mein-titel --stop
 
 In einem Agent (Claude Code, opencode, Copilot CLI) genügt: „Mach mir eine Präsentation zu …“ — der Agent liest `skill/SKILL.md`.
 
+## Decks weitergeben und übernehmen
+
+```bash
+skill/scripts/marp-deck pack mein-titel                 # → mein-titel.deck (ZIP), ohne dist/ und ohne Original-Richtlinien
+skill/scripts/marp-deck unpack mein-titel.deck --dir ~/Vorträge
+skill/scripts/marp-deck import-deck alter-vortrag.pptx --brand firma   # optional, braucht pptx2md
+```
+
 ## CI aus PowerPoint übernehmen
 
 ```bash
