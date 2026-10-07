@@ -88,6 +88,32 @@ class Extract(Base):
         with self.assertRaises(px.PptxError):
             px.extract(nopres)
 
+    def _with_presentation_xml(self, name, xml):
+        evil = self.t / name
+        with zipfile.ZipFile(self.pptx) as zin, zipfile.ZipFile(evil, "w") as zout:
+            for n in zin.namelist():
+                zout.writestr(n, xml if n == "ppt/presentation.xml" else zin.read(n))
+        return evil
+
+    def test_xml_bomb_rejected_cleanly(self):
+        """Billion-Laughs: expat begrenzt die Erweiterung; der Fehler muss als PptxError (nicht als Traceback) ankommen."""
+        ents = "".join(f'<!ENTITY lol{i} "' + (f"&lol{i - 1};" if i > 1 else "lol") * 10 + '">' for i in range(1, 10))
+        bomb = (f'<?xml version="1.0"?><!DOCTYPE x [{ents}]><p:presentation xmlns:p="urn:p">&lol9;</p:presentation>')
+        with self.assertRaises(px.PptxError):
+            px.extract(self._with_presentation_xml("bombe.pptx", bomb))
+
+    def test_external_entity_not_resolved(self):
+        xxe = '<?xml version="1.0"?><!DOCTYPE x [<!ENTITY e SYSTEM "file:///etc/hostname">]><p:presentation xmlns:p="urn:p">&e;</p:presentation>'
+        with self.assertRaises(px.PptxError):
+            px.extract(self._with_presentation_xml("xxe.pptx", xxe))
+
+    def test_unexpected_structure_is_a_clean_error(self):
+        broken = ('<p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" '
+                  'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+                  '<p:sldMasterIdLst><p:sldMasterId id="1" r:id="rIdGibtsNicht"/></p:sldMasterIdLst></p:presentation>')
+        with self.assertRaises(px.PptxError):
+            px.extract(self._with_presentation_xml("kaputt-struktur.pptx", broken))
+
     def test_43_aspect(self):
         d = px.extract(tf.build(self.t / "v43.pptx", aspect="4:3"))
         self.assertAlmostEqual(d["slide"]["aspect"], 1.3333, places=3)

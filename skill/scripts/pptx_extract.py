@@ -74,8 +74,12 @@ class Package:
         info = self.z.getinfo(name)
         if info.file_size > MAX_XML:
             raise PptxError(f"{name}: XML zu groß")
-        # defusedxml ist nicht in der Standardbibliothek; ElementTree löst keine externen Entities auf.
-        return ET.fromstring(self.z.read(name))
+        # defusedxml ist nicht in der Standardbibliothek; Pythons expat löst keine externen Entitäten auf und begrenzt die
+        # Erweiterung interner Entitäten (XML-Bomben). Fehler werden hier in eine verständliche Meldung übersetzt.
+        try:
+            return ET.fromstring(self.z.read(name))
+        except ET.ParseError as e:
+            raise PptxError(f"{name}: kein gültiges XML ({e})") from e
 
     def read(self, name):
         name = name.lstrip("/")
@@ -478,6 +482,13 @@ def text_styles(master_root, theme, clrmap):
 # ── Hauptfunktion ──────────────────────────────────────────────────────────
 
 def extract(path):
+    try:
+        return _extract(path)
+    except (KeyError, ValueError, AttributeError, IndexError, TypeError) as e:
+        raise PptxError(f"Datei hat eine unerwartete Struktur ({type(e).__name__}: {e}) — keine gültige Vorlage?") from e
+
+
+def _extract(path):
     pkg = Package(path)
     pres = pkg.xml("ppt/presentation.xml")
     if pres is None:
