@@ -17,7 +17,7 @@ skill/                 das eigentliche Skill-Verzeichnis (wird nach ~/.claude/sk
   SKILL.md
   base/                layouts.css, components.css — markenneutral
   brands/<name>/       tokens.css, brand.json, assets/
-  scripts/             build-theme.py, doctor.py, common.py (geplant: new, serve, export, import-brand)
+  scripts/             marp-deck (CLI), build-theme.py, pptx_extract.py, pptx_showcase.py, brand_import.py, brand_preview.py, doctor.py
 docs/                  Architektur, Brand-Format
 tests/                 Unit- und Render-Tests, Fixture-Deck, Theme-Vergleich
 ```
@@ -53,9 +53,19 @@ skill/scripts/marp-deck serve mein-titel --stop
 
 In einem Agent (Claude Code, opencode, Copilot CLI) genügt: „Mach mir eine Präsentation zu …“ — der Agent liest `skill/SKILL.md`.
 
+## CI aus PowerPoint übernehmen
+
+```bash
+skill/scripts/marp-deck brand import firma.pptx --name firma --guidelines richtlinie.pdf --fonts ~/fonts/firma/
+skill/scripts/marp-deck brand compare firma     # Original | Marp | Differenz je Layout
+skill/scripts/marp-deck new "Mein Titel" --brand firma
+```
+
+Siehe [docs/import-workflow.md](docs/import-workflow.md) (auch für Rechner ohne LibreOffice).
+
 ## Voraussetzungen
 
-Node (für `npx @marp-team/marp-cli`), Chrome/Chromium (PDF, PNG), Python 3.
+Node (für `npx @marp-team/marp-cli`), Chrome/Chromium (PDF, PNG), Python 3. Optional für den CI-Import: LibreOffice, `pdftocairo`, ImageMagick.
 
 ## Tests
 

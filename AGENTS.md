@@ -37,3 +37,8 @@ Marp-Skill mit Brand-System. Ziel und Stand: `README.md`, `ROADMAP.md`.
 - Server und Exporte nur über `skill/scripts/marp-deck` starten (Loopback-Bindung, `--allow-local-files`, stdin zu). Nie `marp -s` direkt: bindet an alle Schnittstellen.
 - Prozesse nie per `pkill -f <Muster>` beenden (trifft die eigene Shell); gezielt per PID oder `marp-deck serve --stop`.
 - Browser-Tests brauchen `puppeteer-core` aus dem npx-Cache von marp-cli; ohne Chrome/puppeteer werden sie übersprungen.
+- PPTX-Parsing: keine `a or b` mit ElementTree-Elementen (leere Elemente sind „falsch“, `<p:ph/>`); Elemente auf `is not None` prüfen.
+- `ZipFile.writestr(ZipInfo, …)` verändert das Quell-Info; mit Namen schreiben. Eingefügte XML-Elemente deklarieren ihre Namensräume selbst.
+- Marpit verwirft `content` auf `section::after`/`::before`; Seitenzahl ausblenden mit `display: none`.
+- Vorlagen-Dateien (PPTX, Logos, Schriften, Richtlinien) nie ins Repo; Tests nutzen `tests/template_factory.py`. Nach Änderungen am Import: `brand compare` mit der synthetischen Vorlage (Abweichung < 12 %, Hintergründe pixelgleich).
+- Beim Import nie Folieninhalt, Notizen oder Kommentare einer Vorlage lesen oder weitergeben.

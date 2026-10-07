@@ -34,20 +34,20 @@ Anforderungen: [docs/requirements.md](docs/requirements.md) · Entscheidungen: [
 
 **Fertig, wenn:** die gemessene Abweichung zum Original vorliegt und entschieden ist, ob Marp für die Layouts reicht. Offene Fragen: Slot-Modell, Hintergrund als Data-URI oder Datei, Treue mit XML-Werten plus Original-Hintergrund.
 
-- [ ] Ein Firmenlayout (PPTX + Showcase-PDF + Screenshot), drei Layouts in Marp
-- [ ] Slot-Modell klären (HTML-Divs mit Markdown)
-- [ ] Hintergrund: Data-URI vs. Datei
-- [ ] Abweichung per Differenzbild messen
+- [x] Spike mit synthetischer Vorlage (6 Layouts) und LibreOffice-Vorlagen statt Firmenlayout: Abweichung 4,7–6,7 % (nur Textglättung)
+- [x] Slot-Modell klären (HTML-Divs mit Markdown)
+- [x] Hintergrund: Data-URI vs. Datei
+- [x] Abweichung per Differenzbild messen
 
 ## M3 — CI-Import
 
-**Fertig, wenn:** eine Firmenvorlage ohne Handarbeit am CSS ein Brand ergibt, dessen Vorschau im Differenzbild unter der festgelegten Schwelle liegt.
+**Fertig, wenn:** eine Firmenvorlage ohne Handarbeit am CSS ein Brand ergibt, dessen Vorschau im Differenzbild nur Textglättung zeigt. **Stand:** mit synthetischer und LibreOffice-Vorlagen erreicht; mit einer echten PowerPoint-Firmenvorlage noch zu prüfen.
 
-- [ ] Stufe A: Extraktion aus PPTX
-- [ ] Hintergründe: LibreOffice → PDF/PNG-Export → Screenshots
-- [ ] Stufe B: Agent-Mapping, `layouts.css`, `GUIDELINES.md`
-- [ ] Korrekturschleife mit Differenzbild
-- [ ] `brand preview`, Font-Warnung
+- [x] Stufe A: Extraktion aus PPTX
+- [x] Hintergründe: LibreOffice → PDF/PNG-Export aus PowerPoint → Rekonstruktion aus Grafiken (nur Screenshots: Agent von Hand, siehe import-workflow.md)
+- [x] Stufe B: Agent-Mapping, `layouts.css`, `GUIDELINES.md`
+- [x] Korrekturschleife mit Differenzbild
+- [x] `brand preview`, Font-Warnung
 
 ## M4 — Container und Politur
 

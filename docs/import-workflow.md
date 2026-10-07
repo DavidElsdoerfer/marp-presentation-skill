@@ -1,0 +1,101 @@
+# CI aus PowerPoint übernehmen
+
+Aus einer PowerPoint-Vorlage (`.pptx`, `.potx`) wird ein Brand: Farben, Schriften, Logo, Hintergründe und die
+Position von Titel, Inhalt, Fußzeile und Seitenzahl je Layout. Gelesen werden nur **Folienmaster, Layouts und Theme**,
+nie der Inhalt von Folien.
+
+## Voraussetzungen
+
+| Werkzeug | wofür | Pflicht? |
+|---|---|---|
+| Python 3.9+ | Import (nur Standardbibliothek) | ja |
+| LibreOffice (`soffice`) + `pdftocairo` | Hintergründe und Vergleichsbilder automatisch rendern | nein (siehe Pfad B) |
+| ImageMagick (`compare`, `montage`) | Abweichung messen, Vergleichsbilder | nein |
+
+`marp-deck doctor` zeigt, was vorhanden ist.
+
+## Pfad A — mit LibreOffice (alles automatisch)
+
+```bash
+marp-deck brand import firma.pptx --name firma --guidelines design-richtlinie.pdf --fonts ~/fonts/firma/
+marp-deck brand preview firma        # Deck mit allen Layouts anlegen, dann: marp-deck serve firma-vorschau
+marp-deck brand compare firma        # Original | Marp | Differenz je Layout, mit Abweichung in %
+```
+
+Der Brand landet im Brand-Store (`~/.config/marp-presentation/brands/firma/`), nicht im Skill-Repo.
+
+## Pfad B — nur PowerPoint (ein manueller Schritt)
+
+```bash
+marp-deck brand showcase firma.pptx --out showcase/
+```
+erzeugt zwei Dateien: `…-showcase-leer.pptx` (eine **leere** Folie je Layout: zeigt nur Logo, Linien, Verläufe, Hintergründe)
+und `…-showcase-gefuellt.pptx` (Beispieltext in den Platzhaltern). Beide in PowerPoint als PDF exportieren
+(Datei → Exportieren → PDF), dann:
+
+```bash
+marp-deck brand import firma.pptx --name firma --backgrounds leer.pdf --reference gefuellt.pdf
+```
+
+> Ungetestet: Ob PowerPoint beim PDF-Export leere Platzhalter wirklich weglässt, ist mit LibreOffice bestätigt,
+> mit PowerPoint selbst nicht. Zeigt das PDF Platzhaltertext („Titel durch Klicken hinzufügen“), melde das bitte.
+
+Ohne PDFs (und ohne LibreOffice) rekonstruiert der Import die Hintergründe aus den Grafiken der Vorlage
+(Farbflächen, Verläufe, Bilder als Ebenen). Das ist angenähert: Sonderformen (Freiformen, Muster) fehlen.
+
+## Pfad C — nur Screenshots
+
+Ohne die PPTX-Datei gibt es keinen automatischen Import. Ein Agent kann anhand von Screenshots und der
+Design-Richtlinie ein Brand von Hand aufbauen (Tokens, `custom.css`); das ist ungenauer (Positionen, Farben, Schriften
+sind geschätzt). Die Kombination aus PPTX und Screenshots ist besser: Werte aus der PPTX, Screenshot als Abnahme.
+
+## Ergebnis
+
+```
+<brand>/
+├── brand.json     Name, Logo, overrides, Layout-Zuordnung, Schriften, Palette, Foliengröße
+├── tokens.css     Farben, Schriften (aus dem Theme der Vorlage)
+├── layouts.css    GENERIERT: Hintergründe und Positionen je Layout
+├── custom.css     optional, von Hand: bleibt bei Neuimport erhalten
+├── layouts.md     welche Markdown-Struktur welches Layout füllt
+├── GUIDELINES.md  Regeln aus den Design-Guidelines (vom Agenten auszuwerten)
+├── reference/     Original-Renderings der Layouts mit Beispieltext (für brand compare)
+└── assets/        bg/ (Hintergründe), media/ (Logo, Bilder), fonts/
+```
+
+### Layout-Zuordnung
+`title`, `section`, `closing`, `cols` und die Standard-Inhaltsfolie werden aus Layouttyp und -namen erkannt; alle
+anderen Layouts werden zu `layout-<name>`. Falsch erkannt? `--map klasse="Layoutname"` (mehrfach möglich), z. B.
+`--map closing="Danke"`. Gibt es kein Abschluss-Layout, nutzt `closing` die Titelfolie.
+
+### Slots
+Marp kennt keine Platzhalter. Layouts mit mehreren Inhaltsbereichen füllst du mit je einem `<div>` pro Bereich, in
+Leserichtung (Leerzeile nach dem öffnenden Tag). Bild-Bereiche nehmen ein Bild (`![](assets/x.png)`).
+`layouts.md` zeigt es je Layout.
+
+### Handanpassung
+`layouts.css` nicht bearbeiten (wird bei Neuimport überschrieben), sondern `custom.css` anlegen. Farben und Schriften
+in `tokens.css` dürfen angepasst werden. Danach Decks mit `marp-deck brand sync <deck>` aktualisieren.
+
+## Wie gut ist das Ergebnis?
+
+`brand compare` rendert dieselben Beispieltexte in der Vorlage (LibreOffice/PowerPoint) und in Marp und misst die Abweichung.
+**Hintergründe stimmen pixelgenau** (sie sind das gerenderte Original). Die Restabweichung ist Textglättung zwischen
+den Renderern (Glyphenkanten, 1–2 px Versatz); sie wächst mit der Schriftgröße: bei 20-pt-Text etwa 5 %, bei 32-pt-Text
+10–15 %. Ein echter Layoutfehler zeigt sich als verschobener Block im Differenzbild, nicht als Kantenrauschen.
+
+## Grenzen
+
+- Positionen von Text sind auf etwa 1–2 px genau, Zeilenumbrüche können abweichen (Marp fließt, PowerPoint nicht).
+- Schriften: PPTX enthält nur Namen. Die Dateien müssen mitgeliefert werden (`--fonts`), sonst Ersatzschrift. Der
+  Import meldet fehlende Schriften.
+- Diagramme, SmartArt, Animationen, Übergänge werden nicht übernommen. Gedrehte Textfelder werden gedreht, gedrehte
+  Fließtextbereiche nicht.
+- Datumsplatzhalter wird nicht abgebildet (Marp hat keinen).
+- 16:9 und 4:3 sind unterstützt; andere Seitenverhältnisse wenig getestet.
+- Nur mit LibreOffice-Dateien und einer synthetischen Vorlage geprüft, nicht mit einer echten Firmenvorlage aus PowerPoint.
+
+## Vertraulichkeit
+
+PPTX-Vorlagen, Logos, Schriften und Richtlinien einer Firma gehören **nicht** in ein öffentliches Repo. Der Brand-Store
+liegt außerhalb des Skill-Repos; `reference/` und `assets/` enthalten die Grafiken der CI und bleiben dort.

@@ -5,6 +5,14 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionier
 ## [Unveröffentlicht]
 
 ### Hinzugefügt
+- CI-Import aus PowerPoint: `marp-deck brand showcase|import|preview|compare`, `pptx_extract.py`, `pptx_showcase.py`, `brand_import.py`, `brand_preview.py`
+- Hintergründe pixelgenau über LibreOffice oder PDF-Export aus PowerPoint; ohne beides Rekonstruktion aus Grafiken
+- Vergleich Original ↔ Marp mit Differenzbild und Abweichung in %; `reference/`-Renderings im Brand
+- Brand-Format: `overrides` (Basis-Blöcke ersetzen), `size` (4:3/eigene Foliengröße), `custom.css`, `reference/`, `guidelines/`
+- Abschaltbare Blöcke in `base/layouts.css` (`@block`/`@end`); `--font-heading`-Token
+- 4:3-Vorlagen vollständig unterstützt (`@size`, `size:` im Frontmatter)
+- Synthetische PPTX-Vorlage für Tests (`tests/template_factory.py`), Tests für Extraktion, Showcase, Import, Vergleich
+- `docs/import-workflow.md`, Entscheidung 0007
 - `marp-deck` (new, serve, export pdf|html|pptx, brand list|sync, doctor)
 - Deck-Ordner mit Quelle, `marp.config.mjs`, Brand-Snapshot (`theme/`) und `assets/`
 - Live-Vorschau mit Neuladen im Browser; Server nur auf `127.0.0.1` (Node-Preload)
