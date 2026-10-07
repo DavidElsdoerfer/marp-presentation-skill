@@ -17,3 +17,16 @@ Snapshot statt gemeinsamer Pfad/Symlink: Decks bleiben portabel und ändern sich
 
 ## Export
 PDF und PNG über Chromium; HTML (Bespoke) mit Presenter View (Taste `P`). Live-Bearbeiten über `marp -s`.
+
+## CLI (geplant, ab M1)
+
+Ein Einstieg `marp-deck` (Python-Standardbibliothek, ruft gepinntes `marp-cli`):
+
+| Befehl | Zweck |
+|---|---|
+| `new` | Deck-Ordner mit Brand-Snapshot anlegen |
+| `serve` | `marp -s` im Hintergrund, URL melden |
+| `export pdf\|html` | PDF bzw. HTML mit Presenter View |
+| `brand list\|import\|preview\|sync` | Brands verwalten, PPTX importieren |
+| `pack` / `unpack` | `.deck` (ZIP) erzeugen/entpacken |
+| `doctor` | Voraussetzungen prüfen |
