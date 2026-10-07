@@ -40,6 +40,19 @@ python3 skill/scripts/build-theme.py --list          # verfügbare Brands
 
 Eigene Brands liegen im Brand-Store `~/.config/marp-presentation/brands/<name>/`, siehe [docs/brand-format.md](docs/brand-format.md).
 
+## Benutzung
+
+```bash
+skill/scripts/marp-deck new "Mein Titel" --brand neutral   # Deck-Ordner mit Quelle, Config, Theme-Snapshot
+skill/scripts/marp-deck serve mein-titel                   # Live-Vorschau im Browser (nur localhost)
+skill/scripts/marp-deck export pdf mein-titel              # dist/mein-titel.pdf (mit Notizen, Gliederung)
+skill/scripts/marp-deck export html mein-titel             # dist/mein-titel.html: eine Datei, Presenter View mit Taste P
+skill/scripts/marp-deck brand sync mein-titel              # Brand-Snapshot aktualisieren
+skill/scripts/marp-deck serve mein-titel --stop
+```
+
+In einem Agent (Claude Code, opencode, Copilot CLI) genügt: „Mach mir eine Präsentation zu …“ — der Agent liest `skill/SKILL.md`.
+
 ## Voraussetzungen
 
 Node (für `npx @marp-team/marp-cli`), Chrome/Chromium (PDF, PNG), Python 3.

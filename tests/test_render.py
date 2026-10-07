@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "skill" / "scripts"))
 from common import find_chrome, run_marp  # noqa: E402
 
-FIXTURE = ROOT / "tests" / "fixtures" / "all-classes.md"
+FIXTURE = ROOT / "skill" / "examples" / "all-classes.md"
 
 
 def expected_slides(md):
