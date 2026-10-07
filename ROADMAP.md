@@ -14,21 +14,21 @@ Anforderungen: [docs/requirements.md](docs/requirements.md) · Entscheidungen: [
 - [x] Brand-Auflösung (Deck → Projekt → User → eingebaut)
 - [x] Brand-Format erweitern: `layouts.css`, `GUIDELINES.md`, `fonts/`
 - [x] `doctor` (Node, marp-cli, Chrome, Schriften, optional LibreOffice, pdftocairo)
-- [x] Referenz-Deck `tests/fixtures/` mit allen Klassen (damit sind alle Komponenten visuell geprüft)
+- [x] Referenz-Deck `skill/examples/all-classes.md` mit allen Klassen (damit sind alle Komponenten visuell geprüft)
 - [x] `install.sh` verlinkt nach `~/.agents/skills` (Copilot CLI), optional `~/.claude/skills`, `~/.copilot/skills`
 - [ ] Offen für den Autor: Lizenz wählen; autarkit-Logo/-Tokens stehen noch im öffentlichen Git-Verlauf (siehe `docs/open-questions.md`)
 
 ## M1 — Deck-Ordner, Vorschau, Export
 
 **Fertig, wenn:** eine Änderung der `.md` im Browser erscheint, PDF und HTML mit der Vorschau übereinstimmen und `P` im exportierten HTML die Presenter View öffnet.  
-**Zu prüfen:** relative Bildpfade im HTML-Export (`dist/`), Presenter View über `file://`.
+**Geprüft:** Bildpfade im HTML-Export (jetzt eingebettet, Entscheidung 0005), Presenter View über `file://` (funktioniert), Server nur auf localhost (0006).
 
-- [ ] `new` (Deck-Skelett, Brand-Snapshot), `brand-sync`
-- [ ] `serve`: `marp -s` im Hintergrund, URL melden
-- [ ] `export pdf` (`--pdf-notes --pdf-outlines`)
-- [ ] `export html` mit Presenter View (Bilder-Pfade, `file://` prüfen)
-- [ ] marp-cli auf getestete Version pinnen
-- [ ] S1 als Testfall migrieren
+- [x] `new` (Deck-Skelett, Brand-Snapshot), `brand-sync`
+- [x] `serve`: `marp -s` im Hintergrund, URL melden
+- [x] `export pdf` (`--pdf-notes --pdf-outlines`)
+- [x] `export html` mit Presenter View (Bilder-Pfade, `file://` prüfen)
+- [x] marp-cli auf getestete Version pinnen
+- [x] S1 als Testfall migrieren (neuer Ordner neben den alten Dateien; 22/22 Folien pixelgleich)
 
 ## M2 — Spike Layout-Treue
 

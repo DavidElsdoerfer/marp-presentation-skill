@@ -1,0 +1,390 @@
+#!/usr/bin/env python3
+"""marp-deck — Marp-Decks anlegen, live ansehen und exportieren.
+
+  marp-deck new <titel> [--brand NAME] [--dir ORDNER] [--slug SLUG]
+  marp-deck serve [DECK] [--port N] [--stop]
+  marp-deck export pdf|html|pptx [DECK] [-o DATEI]
+  marp-deck brand list
+  marp-deck brand sync [DECK]
+  marp-deck doctor
+
+DECK ist der Deck-Ordner (Standard: aktueller Ordner oder genau ein Unterordner mit marp.config.mjs).
+"""
+import argparse, base64, importlib.util, json, mimetypes, os, re, shutil, signal, socket, subprocess, sys, tempfile
+import time, unicodedata, urllib.error, urllib.request
+from pathlib import Path
+from urllib.parse import quote, unquote
+
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+from common import marp_cmd, marp_env, run_marp  # noqa: E402
+
+
+def _load_build_theme():
+    spec = importlib.util.spec_from_file_location("build_theme", HERE / "build-theme.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+bt = _load_build_theme()
+
+CONFIG = """\
+// Generiert von marp-deck. Alle Pfade relativ zu diesem Ordner.
+export default {
+  allowLocalFiles: true,   // ohne diese Option läuft marp-cli beim Seitenladen in einen Timeout
+  html: true,
+  themeSet: ['./theme/theme.css'],
+  pdfNotes: true,
+  pdfOutlines: true,
+}
+"""
+
+DECK_GITIGNORE = "dist/\n.marp-deck/\n"
+
+DECK_TEMPLATE = """\
+---
+marp: true
+theme: {theme}
+paginate: true
+html: true
+footer: "{title}"
+---
+
+<!-- _class: title -->
+
+# {title}
+## Untertitel
+
+<div class="title-meta">
+  <span>{date}</span>
+  <span>Autor · Ort</span>
+</div>
+
+---
+
+# Agenda
+
+1. Erster Punkt
+2. Zweiter Punkt
+3. Dritter Punkt
+
+---
+
+<!-- _class: section -->
+
+# Erster Abschnitt
+## 1
+
+---
+
+# Inhaltsfolie
+
+- Kernaussage
+- Beleg oder Beispiel
+- Nächster Schritt
+
+<!-- Sprechernotiz: erscheint in der Presenter View und (mit --pdf-notes) im PDF. -->
+
+---
+
+<!-- _class: closing -->
+
+# Fragen?
+
+## kontakt@example.org
+
+Weitere Informationen
+"""
+
+MONTHS = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober",
+          "November", "Dezember"]
+
+
+def die(msg):
+    sys.exit(f"marp-deck: {msg}")
+
+
+def slugify(title):
+    s = unicodedata.normalize("NFC", title).lower().strip()
+    s = re.sub(r"\s+", "-", s)
+    s = re.sub(r"[^\w\-]", "", s, flags=re.UNICODE).replace("_", "-")
+    s = re.sub(r"-{2,}", "-", s).strip("-")
+    return s
+
+
+def find_deck(arg=None):
+    base = Path(arg).expanduser() if arg else Path.cwd()
+    if (base / "marp.config.mjs").is_file():
+        return base.resolve()
+    if arg is None:
+        subs = [p for p in base.iterdir() if p.is_dir() and (p / "marp.config.mjs").is_file()]
+        if len(subs) == 1:
+            return subs[0].resolve()
+        if len(subs) > 1:
+            die("mehrere Decks gefunden, DECK angeben: " + ", ".join(p.name for p in sorted(subs)))
+    die(f"kein Deck gefunden in {base} (marp.config.mjs fehlt)")
+
+
+def deck_md(deck):
+    named = deck / f"{deck.name}.md"
+    if named.is_file():
+        return named
+    mds = [p for p in deck.glob("*.md") if p.name.lower() != "readme.md"]
+    if len(mds) == 1:
+        return mds[0]
+    die(f"{deck}: Deck-Datei nicht eindeutig (erwarte {deck.name}.md)")
+
+
+def snapshot_brand(src, deck):
+    dst = deck / "theme" / "brand"
+    if Path(src).resolve() != dst.resolve():  # Snapshot nie über sich selbst kopieren
+        if dst.exists():
+            shutil.rmtree(dst)
+        shutil.copytree(src, dst)
+    bt.build(dst.resolve(), deck / "theme" / "theme.css")
+
+
+# ── new ────────────────────────────────────────────────────────────────────
+
+def cmd_new(a):
+    title = " ".join(a.title).strip()
+    if not title:
+        die("Titel angeben")
+    slug = a.slug or slugify(title)
+    if not slug:
+        die("aus dem Titel ließ sich kein Dateiname ableiten, --slug angeben")
+    parent = Path(a.dir).expanduser() if a.dir else Path.cwd()
+    deck = (parent / slug).resolve()
+    if deck.exists():
+        die(f"{deck} existiert bereits")
+    src = bt.resolve(a.brand, None)
+    deck.mkdir(parents=True)
+    (deck / "assets").mkdir()
+    (deck / "assets" / ".gitkeep").write_text("")
+    snapshot_brand(src, deck)
+    theme = json.loads((deck / "theme" / "brand" / "brand.json").read_text())["name"]
+    now = time.localtime()
+    (deck / "marp.config.mjs").write_text(CONFIG)
+    (deck / ".gitignore").write_text(DECK_GITIGNORE)
+    (deck / f"{slug}.md").write_text(DECK_TEMPLATE.format(
+        theme=theme, title=title.replace('"', "'"), date=f"{MONTHS[now.tm_mon - 1]} {now.tm_year}"))
+    print(f"Deck angelegt: {deck}")
+    print(f"  Quelle:  {deck / (slug + '.md')}")
+    print(f"  Brand:   {theme} (Snapshot in theme/brand/)")
+    print(f"  Vorschau: {Path(sys.argv[0]).name} serve {deck}")
+
+
+# ── serve ──────────────────────────────────────────────────────────────────
+
+def free_port(start=8080):
+    for p in range(start, start + 200):
+        with socket.socket() as s:
+            if s.connect_ex(("127.0.0.1", p)) != 0:
+                return p
+    die("kein freier Port gefunden")
+
+
+def http_ok(url, timeout=2):
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as r:
+            return r.status == 200
+    except (urllib.error.URLError, OSError):
+        return False
+
+
+def read_state(deck):
+    f = deck / ".marp-deck" / "serve.json"
+    if f.is_file():
+        try:
+            return json.loads(f.read_text())
+        except ValueError:
+            return None
+    return None
+
+
+def pid_alive(pid):
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+
+
+def cmd_serve(a):
+    deck = find_deck(a.deck)
+    state_dir = deck / ".marp-deck"
+    state = read_state(deck)
+    running = bool(state) and pid_alive(state["pid"]) and http_ok(f"http://127.0.0.1:{state['port']}/")
+
+    if a.stop:
+        if state and pid_alive(state["pid"]):
+            try:
+                os.killpg(state["pid"], signal.SIGTERM)
+            except OSError:
+                pass
+            for _ in range(50):
+                if not pid_alive(state["pid"]):
+                    break
+                time.sleep(0.1)
+            print(f"Server gestoppt (Port {state['port']})")
+        else:
+            print("Kein Server aktiv")
+        (state_dir / "serve.json").unlink(missing_ok=True)
+        return
+
+    md = deck_md(deck)
+    if running:
+        print(f"Server läuft bereits: {state['url']}")
+        return
+
+    port = a.port or free_port(8080)
+    state_dir.mkdir(exist_ok=True)
+    env = marp_env()
+    env["PORT"] = str(port)
+    env["NODE_OPTIONS"] = (env.get("NODE_OPTIONS", "") + f" --require {HERE / 'bind-localhost.cjs'}").strip()
+    log = open(state_dir / "serve.log", "w")
+    proc = subprocess.Popen(marp_cmd() + ["-c", "marp.config.mjs", "-s", "."], cwd=deck, env=env,
+                            stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+    base = f"http://127.0.0.1:{port}/"
+    deadline = time.time() + 120
+    while time.time() < deadline:
+        if proc.poll() is not None:
+            die(f"Server beendet sich (Exit {proc.returncode}), siehe {state_dir / 'serve.log'}")
+        if http_ok(base):
+            break
+        time.sleep(0.5)
+    else:
+        os.killpg(proc.pid, signal.SIGTERM)
+        die("Server startet nicht rechtzeitig")
+    url = f"http://localhost:{port}/{quote(md.name)}"
+    (state_dir / "serve.json").write_text(json.dumps({"pid": proc.pid, "port": port, "url": url}))
+    print(f"Server läuft: {url}")
+    print("Änderungen an der .md werden live nachgeladen. Stoppen: marp-deck serve --stop")
+
+
+# ── export ─────────────────────────────────────────────────────────────────
+
+URL_RE = re.compile(r"""url\((?P<q>&quot;|["'])?(?P<p>[^)"'&]+?)(?P=q)?\)""")
+SRC_RE = re.compile(r"""(?P<pre>\bsrc=)(?P<q>["'])(?P<p>[^"']+)(?P=q)""")
+
+
+def inline_local_assets(html, deck):
+    """Bettet lokale Dateien (Bilder, Hintergründe) als Data-URI ein → eine einzige, portable HTML-Datei."""
+    deck = deck.resolve()
+    cache, missing = {}, []
+
+    def data_uri(rel):
+        if re.match(r"^(https?:|data:|#|//|mailto:)", rel):
+            return None
+        rel = unquote(rel)
+        path = (deck / rel).resolve()
+        if not path.is_relative_to(deck) or not path.is_file():
+            missing.append(rel)
+            return None
+        if path not in cache:
+            mime = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+            cache[path] = f"data:{mime};base64," + base64.b64encode(path.read_bytes()).decode()
+        return cache[path]
+
+    def sub_src(m):
+        uri = data_uri(m["p"])
+        return m[0] if uri is None else f"{m['pre']}{m['q']}{uri}{m['q']}"
+
+    def sub_url(m):
+        uri = data_uri(m["p"])
+        if uri is None:
+            return m[0]
+        q = m["q"] or ""
+        return f"url({q}{uri}{q})"
+
+    html = SRC_RE.sub(sub_src, html)
+    html = URL_RE.sub(sub_url, html)
+    return html, missing
+
+
+def cmd_export(a):
+    deck = find_deck(a.deck)
+    md = deck_md(deck)
+    ext = a.format
+    out = Path(a.output).expanduser().resolve() if a.output else deck / "dist" / f"{md.stem}.{ext}"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    args = ["-c", "marp.config.mjs"]
+    if ext == "pdf":
+        args.append("--pdf")
+    elif ext == "pptx":
+        args.append("--pptx")
+    args += ["-o", str(out), md.name]
+    run_marp(args, cwd=deck)
+    if ext == "html":
+        html, missing = inline_local_assets(out.read_text(), deck)
+        out.write_text(html)
+        for rel in sorted(set(missing)):
+            print(f"WARNUNG: lokale Datei nicht eingebettet (fehlt oder außerhalb des Decks): {rel}", file=sys.stderr)
+    size = out.stat().st_size / 1024
+    note = {"pdf": "mit Notizen und Gliederung", "pptx": "nur Bilder der Folien, nicht editierbar",
+            "html": "eine Datei, Presenter View mit Taste P"}[ext]
+    print(f"{out} ({size:.0f} KB) — {note}")
+
+
+# ── brand ──────────────────────────────────────────────────────────────────
+
+def cmd_brand(a):
+    if a.sub == "list":
+        bt.list_brands(None)
+        return
+    deck = find_deck(a.deck)
+    snap = deck / "theme" / "brand"
+    if not (snap / "brand.json").is_file():
+        die("Deck hat keinen Brand-Snapshot (theme/brand/)")
+    name = json.loads((snap / "brand.json").read_text())["name"]
+    src = bt.resolve(name, None)  # bewusst ohne Deck: Quelle ist der Store, nicht der Snapshot
+    old = (deck / "theme" / "theme.css").read_bytes() if (deck / "theme" / "theme.css").is_file() else b""
+    with tempfile.TemporaryDirectory() as tmp:
+        bt.build(src, Path(tmp) / "t.css")  # erst prüfen, dann ersetzen
+    snapshot_brand(src, deck)
+    new = (deck / "theme" / "theme.css").read_bytes()
+    print(f"Brand '{name}' aus {src} übernommen — Theme {'unverändert' if old == new else 'aktualisiert'}")
+
+
+def cmd_doctor(_a):
+    sys.exit(subprocess.run([sys.executable, str(HERE / "doctor.py")]).returncode)
+
+
+def main():
+    ap = argparse.ArgumentParser(prog="marp-deck", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sp = ap.add_subparsers(dest="cmd", required=True)
+
+    n = sp.add_parser("new", help="neues Deck anlegen")
+    n.add_argument("title", nargs="+")
+    n.add_argument("--brand", default="neutral")
+    n.add_argument("--dir")
+    n.add_argument("--slug")
+    n.set_defaults(fn=cmd_new)
+
+    s = sp.add_parser("serve", help="Live-Vorschau im Browser starten/stoppen")
+    s.add_argument("deck", nargs="?")
+    s.add_argument("--port", type=int)
+    s.add_argument("--stop", action="store_true")
+    s.set_defaults(fn=cmd_serve)
+
+    e = sp.add_parser("export", help="als pdf, html oder pptx exportieren")
+    e.add_argument("format", choices=["pdf", "html", "pptx"])
+    e.add_argument("deck", nargs="?")
+    e.add_argument("-o", "--output")
+    e.set_defaults(fn=cmd_export)
+
+    b = sp.add_parser("brand", help="Brands auflisten, Deck-Snapshot aktualisieren")
+    b.add_argument("sub", choices=["list", "sync"])
+    b.add_argument("deck", nargs="?")
+    b.set_defaults(fn=cmd_brand)
+
+    d = sp.add_parser("doctor", help="Voraussetzungen prüfen")
+    d.set_defaults(fn=cmd_doctor)
+
+    a = ap.parse_args()
+    a.fn(a)
+
+
+if __name__ == "__main__":
+    main()
