@@ -10,12 +10,13 @@ Anforderungen: [docs/requirements.md](docs/requirements.md) · Entscheidungen: [
 - [x] Hartcodierte Farben in Komponenten durch Tokens ersetzt
 - [x] `build-theme.py` (Logo als Data-URI)
 - [x] Pixelgleiche Regression gegen altes Theme (S1: 22, S6: 131 Folien)
-- [ ] Brand `neutral` anlegen, `autarkit` aus dem Repo in den Brand-Store verschieben
-- [ ] Brand-Auflösung (Deck → Projekt → User → eingebaut)
-- [ ] Brand-Format erweitern: `layouts.css`, `GUIDELINES.md`, `fonts/`
-- [ ] `doctor` (Node, marp-cli, Chrome, Schriften, optional LibreOffice, pdftocairo)
-- [ ] Referenz-Deck `tests/fixtures/` mit allen Klassen
-- [ ] `install.sh` verlinkt nach `~/.agents/skills` (Copilot CLI), optional `~/.claude/skills`, `~/.copilot/skills`
+- [x] Brand `neutral` anlegen, `autarkit` aus dem Repo in den Brand-Store verschieben
+- [x] Brand-Auflösung (Deck → Projekt → User → eingebaut)
+- [x] Brand-Format erweitern: `layouts.css`, `GUIDELINES.md`, `fonts/`
+- [x] `doctor` (Node, marp-cli, Chrome, Schriften, optional LibreOffice, pdftocairo)
+- [x] Referenz-Deck `tests/fixtures/` mit allen Klassen (damit sind alle Komponenten visuell geprüft)
+- [x] `install.sh` verlinkt nach `~/.agents/skills` (Copilot CLI), optional `~/.claude/skills`, `~/.copilot/skills`
+- [ ] Offen für den Autor: Lizenz wählen; autarkit-Logo/-Tokens stehen noch im öffentlichen Git-Verlauf (siehe `docs/open-questions.md`)
 
 ## M1 — Deck-Ordner, Vorschau, Export
 

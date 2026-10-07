@@ -1,0 +1,19 @@
+/* Brand-Tokens neutral — markenfreies Standard-Brand des Skills.
+   --logo wird vom Build-Skript aus assets/logo.* als Data-URI eingesetzt. */
+:root {
+  --primary:    #2f5d8a;
+  --primary-dk: #234767;
+  --primary-lt: #8db4dd;
+  --primary-xl: #e8eef5;
+  --dark:       #1f2933;
+  --text:       #333333;
+  --muted:      #6b7280;
+  --border:     #e0e0e0;
+  --light:      #f0f0f0;
+  --white:      #ffffff;
+  --grey-label: #aaaaaa;
+  --grey-mid:   #dcdcdc;
+  --callout:    #cfe0f1;
+  --font:       -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI",
+                Helvetica, Arial, sans-serif;
+}
