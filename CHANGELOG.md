@@ -5,6 +5,9 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionier
 ## [Unveröffentlicht]
 
 ### Hinzugefügt
+- `brand import --replace` (Neuimport mit Sicherung, übernimmt `custom.css`, `GUIDELINES.md`, Schriften), `repair-config`, `--trust-config`
+- Sicherung von Handänderungen bei `brand sync` unter `.marp-deck/brand-backup-*`
+- Regressionstests zu allen Review-Befunden (`tests/test_review_findings.py`), Entscheidung 0009
 - `.deck`-Container: `marp-deck pack` / `unpack` (ZIP mit Manifest; prüft Zip-Slip, Symlinks, Größen, überschreibt nie)
 - `marp-deck import-deck`: bestehende PowerPoint-Präsentation als Marp-Deck (optional über `pptx2md`); entfernt externe Google-Fonts-Importe
 - Tests: Pack/Unpack inkl. manipulierter Archive, Adapter, „Brand-Import liest nie Folieninhalt“
@@ -40,6 +43,11 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionier
 - `tests/compare-themes.sh`
 
 ### Geändert
+- **Sicherheit (Review):** `unpack` übernimmt `marp.config.mjs` nie aus dem Archiv; `serve`/`export` verweigern abweichende Configs;
+  Strings aus der PPTX werden bereinigt; Brand-CSS ohne `@import`/externe URLs; `serve.json` strikt validiert; Symlinks im Brand nicht gefolgt;
+  Showcase ohne Reste der Originalfolien (Vorschaubild, Titel, Kommentare, verwaiste Medien), mit Größen- und Eintragsgrenzen
+- Brand-Suche: Projektordner-Brands zuletzt (überschreiben `neutral` nicht mehr)
+- Fehlerpfade hinterlassen keine halbfertigen Brands/Decks
 - Brand-Snapshot im Deck enthält keine Original-Richtlinien (`guidelines/`) und keine Referenzbilder (`reference/`) mehr
 - Brand `autarkit` aus dem Repo entfernt (liegt im Brand-Store; im Git-Verlauf bleibt der erste Commit)
 - Alle 40 Komponentenklassen visuell geprüft (Fixture); `neutral`: `--primary-lt` aufgehellt

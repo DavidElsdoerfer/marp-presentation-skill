@@ -26,10 +26,11 @@ def search_dirs(deck):
     dirs = []
     if deck:
         dirs.append(Path(deck) / "theme" / "brand")
-    dirs.append(Path.cwd() / ".marp-brands")
     store = os.environ.get("MARP_BRANDS_DIR")
     dirs.append(Path(store).expanduser() if store else Path.home() / ".config" / "marp-presentation" / "brands")
     dirs.append(SKILL / "brands")
+    # Projektordner zuletzt: ein geklontes fremdes Repo darf eingebaute oder eigene Brands nicht überschreiben
+    dirs.append(Path.cwd() / ".marp-brands")
     return dirs
 
 
@@ -39,7 +40,7 @@ def is_brand(path):
 
 def resolve(brand, deck):
     p = Path(brand).expanduser()
-    if p.is_dir() and is_brand(p):
+    if ("/" in brand or brand.startswith(("~", "."))) and p.is_dir() and is_brand(p):   # nur ausdrückliche Pfade
         return p.resolve()
     for d in search_dirs(deck):
         if d.name == "brand" and is_brand(d):  # Deck-Snapshot ist selbst der Brand-Ordner
@@ -49,6 +50,11 @@ def resolve(brand, deck):
         cand = d / brand
         if cand.is_dir() and is_brand(cand):
             return cand.resolve()
+    for d in search_dirs(deck):   # Ordnername weicht vom Brand-Namen ab (--out): über brand.json suchen
+        if d.is_dir() and d.name != "brand":
+            for c in sorted(d.iterdir()):
+                if c.is_dir() and is_brand(c) and json.loads((c / "brand.json").read_text()).get("name") == brand:
+                    return c.resolve()
     sys.exit(f"Brand '{brand}' nicht gefunden. Gesucht in: " + ", ".join(str(d) for d in search_dirs(deck)))
 
 
@@ -111,12 +117,16 @@ def inline_css_urls(css, brand_dir):
     """Bettet relative url(...)-Verweise in Brand-CSS als Data-URI ein (Pfade müssen im Brand-Ordner bleiben)."""
     def sub(m):
         rel = m.group("p").strip()
-        if re.match(r"^(data:|https?:|//|#|var\()", rel):
+        if re.match(r"^(https?:|//|ftp:)", rel):
+            sys.exit(f"Brand-CSS: externe Ressource '{rel[:60]}' nicht erlaubt (Themes müssen offline funktionieren)")
+        if re.match(r"^(data:|#|var\()", rel):
             return m.group(0)
         path = safe_asset(brand_dir, rel)
         mime = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
         data = base64.b64encode(path.read_bytes()).decode()
         return f"url('data:{mime};base64,{data}')"
+    if re.search(r"@import\b", css):
+        sys.exit("Brand-CSS: @import nicht erlaubt (Themes müssen offline und in sich geschlossen sein)")
     return URL_RE.sub(sub, css)
 
 

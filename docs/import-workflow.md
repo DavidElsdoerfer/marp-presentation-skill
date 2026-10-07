@@ -73,8 +73,8 @@ Marp kennt keine Platzhalter. Layouts mit mehreren Inhaltsbereichen füllst du m
 Leserichtung (Leerzeile nach dem öffnenden Tag). Bild-Bereiche nehmen ein Bild (`![](assets/x.png)`).
 `layouts.md` zeigt es je Layout.
 
-### Handanpassung
-`layouts.css` nicht bearbeiten (wird bei Neuimport überschrieben), sondern `custom.css` anlegen. Farben und Schriften
+### Handanpassung und Neuimport
+`layouts.css` nicht bearbeiten (wird bei Neuimport überschrieben), sondern `custom.css` anlegen. Ein Neuimport mit `--replace` sichert den alten Brand (`<name>.bak-<zeit>`) und übernimmt `custom.css`, `GUIDELINES.md` und mitgelieferte Schriften; ohne `--replace` lehnt der Import einen vorhandenen Brand ab. `custom.css` und alle Brand-CSS dürfen keine externen Ressourcen (`@import`, `http(s):`) enthalten. Farben und Schriften
 in `tokens.css` dürfen angepasst werden. Danach Decks mit `marp-deck brand sync <deck>` aktualisieren.
 
 ## Wie gut ist das Ergebnis?
@@ -93,6 +93,8 @@ den Renderern (Glyphenkanten, 1–2 px Versatz); sie wächst mit der Schriftgrö
   Fließtextbereiche nicht.
 - Datumsplatzhalter wird nicht abgebildet (Marp hat keinen).
 - 16:9 und 4:3 sind unterstützt; andere Seitenverhältnisse wenig getestet.
+- Bei Vorlagen mit **mehreren Folienmastern** stammen Farben, Schriften und Logo vom ersten Master (nicht getestet).
+- Strings aus der Datei (Farben, Schriftnamen, Layoutnamen) werden bereinigt, bevor sie in CSS oder Markdown landen: Farben nur als sechs Hexziffern, Schriftnamen nur Buchstaben/Ziffern/Leerzeichen/`.+-`, Layoutnamen ohne Markup.
 - Nur mit LibreOffice-Dateien und einer synthetischen Vorlage geprüft, nicht mit einer echten Firmenvorlage aus PowerPoint.
 
 ## Vertraulichkeit
@@ -127,6 +129,8 @@ ordnest du danach zu.
 marp-deck pack mein-vortrag            # → mein-vortrag.deck (ZIP)
 marp-deck unpack mein-vortrag.deck --dir ~/Vorträge
 ```
+
+Ein `.deck` aus fremder Quelle gilt als nicht vertrauenswürdig: `unpack` übernimmt `marp.config.mjs` nie aus dem Archiv (ausführbarer Code), sondern schreibt die Standardfassung neu, und verwirft `.marp-deck/`, `.git/`, `dist/`, `node_modules/`. Ein Deck rendert rohes HTML und lokale Dateien; fremde Decks vor dem Export ansehen.
 
 Ein `.deck` ist ein ZIP mit `manifest.json` (Format, Version, Name, Brand) und dem Deck-Ordner (Quelle, Config,
 Theme-Snapshot, Assets). `dist/`, `.marp-deck/` und Symlinks bleiben draußen. Der Brand-Snapshot enthält weder

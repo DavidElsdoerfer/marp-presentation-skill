@@ -168,6 +168,42 @@ class Showcase(Base):
         out = sc.insert_sld_id_lst(pres, [(256, "rId9")])
         self.assertIn("<pr:sldIdLst>", out); self.assertIn("</pr:sldIdLst>", out)
 
+    def test_no_remnants_of_original_slides(self):
+        """Regression (Review): Vorschaubild, Folientitel in app.xml, Kommentare und nur von Folien genutzte Medien blieben im Showcase."""
+        src = tf.build(self.t / "reste.pptx", slides=True, remnants=True)
+        with zipfile.ZipFile(src) as z:
+            blob = b"".join(z.read(n) for n in z.namelist())
+        self.assertIn(tf.SECRET.encode(), blob)                      # Voraussetzung: die Reste sind in der Quelle
+        for filled in (False, True):
+            out = self.t / f"reste-show-{filled}.pptx"
+            sc.build(src, out, filled=filled)
+            with zipfile.ZipFile(out) as z:
+                self.assertIsNone(z.testzip())
+                names = z.namelist()
+                data = b"".join(z.read(n) for n in names)
+            self.assertNotIn(tf.SECRET.encode(), data)
+            for gone in ("docProps/thumbnail.jpeg", "ppt/comments/comment1.xml", "ppt/commentAuthors.xml",
+                         "ppt/media/nur-folie.png", "ppt/embeddings/tabelle.bin"):
+                self.assertNotIn(gone, names)
+            self.assertIn("ppt/media/logo.png", names)                # vom Layout genutzt: bleibt
+            ct = zipfile.ZipFile(out).read("[Content_Types].xml").decode()
+            for name in re.findall(r'PartName="/([^"]+)"', ct):       # keine Overrides auf entfernte Teile
+                self.assertIn(name, names)
+            self.assertEqual(len(px.extract(out)["layouts"]), 6)
+
+    def test_showcase_limits(self):
+        old_e, old_b = sc.MAX_ENTRIES, sc.MAX_BYTES
+        try:
+            sc.MAX_ENTRIES = 3
+            with self.assertRaises(sc.ShowcaseError):
+                sc.build(self.pptx, self.t / "z1.pptx")
+            sc.MAX_ENTRIES, sc.MAX_BYTES = old_e, 100
+            with self.assertRaises(sc.ShowcaseError):
+                sc.build(self.pptx, self.t / "z2.pptx")
+        finally:
+            sc.MAX_ENTRIES, sc.MAX_BYTES = old_e, old_b
+        self.assertFalse((self.t / "z1.pptx").exists())
+
     def test_existing_slides_removed(self):
         out1 = self.t / "a.pptx"; sc.build(self.pptx, out1)
         out2 = self.t / "b.pptx"; self.assertEqual(sc.build(out1, out2), 6)    # Showcase eines Showcase: keine Doppelungen

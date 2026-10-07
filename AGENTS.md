@@ -45,3 +45,8 @@ Marp-Skill mit Brand-System. Ziel und Stand: `README.md`, `ROADMAP.md`.
 - `.deck`-Archive und Brand-Pakete aus fremder Quelle gelten als nicht vertrauenswürdig: `unpack` prüft vor dem Schreiben; Pfadprüfung (`safe_member`) nie umgehen.
 - Brand-Snapshots im Deck enthalten keine `guidelines/` und `reference/` (`SNAPSHOT_EXCLUDE`); neue vertrauliche Brand-Bestandteile dort ausschließen.
 - `pptx2md` ist optional und nie Abhängigkeit; seine Ausgabe wird nachbearbeitet (externe `@import` entfernen).
+- `marp.config.mjs` ist Code (marp-cli lädt es per `import`). Nie aus Fremdquellen übernehmen; `ensure_trusted_config` nicht umgehen.
+- Strings aus PPTX/Brand (Farben, Schriftnamen, Layoutnamen) sind Daten: vor CSS/Markdown bereinigen (`px.safe_hex/safe_font/safe_text`).
+- Brand-CSS: kein `@import`, keine `http(s):`-URLs (offline, in sich geschlossen).
+- Fehlerpfade räumen nur auf, was der aktuelle Lauf selbst angelegt hat; nie vorhandene Nutzerdaten löschen.
+- Vor jedem Review-Fix einen Regressionstest in `tests/test_review_findings.py` anlegen.

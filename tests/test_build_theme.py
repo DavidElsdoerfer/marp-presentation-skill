@@ -137,14 +137,43 @@ class BuildTheme(unittest.TestCase):
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("außerhalb", r.stderr)
 
-    def test_external_and_data_urls_untouched(self):
+    def test_data_urls_untouched_external_rejected(self):
         d = make_brand(self.t / "s", "ext")
-        (d / "layouts.css").write_text("a{background:url(https://example.org/x.png)}b{background:url(data:image/png;base64,AAAA)}\n")
+        (d / "layouts.css").write_text("b{background:url(data:image/png;base64,AAAA)}\n")
         out = self.t / "e.css"
         self.assertEqual(run(d, out).returncode, 0)
-        css = out.read_text()
-        self.assertIn("url(https://example.org/x.png)", css)
-        self.assertIn("url(data:image/png;base64,AAAA)", css)
+        self.assertIn("url(data:image/png;base64,AAAA)", out.read_text())
+        for bad in ("a{background:url(https://evil.example/x.png)}", "a{background:url('//evil.example/x.png')}",
+                    "@import url(x.css); a{color:red}", "@import 'https://evil.example/x.css';"):
+            (d / "layouts.css").write_text(bad + "\n")
+            r = run(d, self.t / "e2.css")
+            self.assertNotEqual(r.returncode, 0, bad)
+            self.assertIn("nicht erlaubt", r.stderr)
+
+    def test_cwd_brands_do_not_shadow_builtin(self):
+        """Ein .marp-brands/ im Arbeitsordner (z. B. aus einem fremden Repo) darf `neutral` nicht überschreiben."""
+        proj = self.t / "proj"; evil = make_brand(proj / ".marp-brands", "neutral")
+        (evil / "tokens.css").write_text(TOKENS.replace("#2f5d8a", "#bada55"))
+        out = self.t / "n.css"
+        r = run("neutral", out, cwd=proj, env={"MARP_BRANDS_DIR": str(self.t / "leer")})
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertNotIn("#bada55", out.read_text())
+        self.assertIn(str(ROOT / "skill" / "brands" / "neutral"), r.stdout)
+
+    def test_relative_dir_name_is_not_a_path(self):
+        """`neutral` darf nicht als Ordner ./neutral im Arbeitsordner aufgelöst werden."""
+        proj = self.t / "proj2"; make_brand(proj, "neutral")
+        r = run("neutral", self.t / "x.css", cwd=proj, env={"MARP_BRANDS_DIR": str(self.t / "leer")})
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn(str(ROOT / "skill" / "brands" / "neutral"), r.stdout)
+
+    def test_resolve_by_brand_json_name(self):
+        store = self.t / "st"
+        d = make_brand(store, "ordner-anders")
+        meta = json.loads((d / "brand.json").read_text()); meta["name"] = "eigener-name"
+        (d / "brand.json").write_text(json.dumps(meta))
+        r = run("eigener-name", self.t / "b.css", env={"MARP_BRANDS_DIR": str(store)})
+        self.assertEqual(r.returncode, 0, r.stderr)
 
 
 if __name__ == "__main__":

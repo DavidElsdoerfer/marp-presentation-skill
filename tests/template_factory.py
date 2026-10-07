@@ -99,7 +99,7 @@ def theme_xml():
 SECRET = "GEHEIMER-FOLIENTEXT-4711"
 
 
-def build(path, aspect="16:9", slides=False):
+def build(path, aspect="16:9", slides=False, remnants=False):
     geo = Geo(12192000, 6858000) if aspect == "16:9" else Geo(9144000, 6858000)
     bg1, tx2, acc1 = scheme("bg1"), scheme("tx2"), scheme("accent1")
 
@@ -186,13 +186,26 @@ def build(path, aspect="16:9", slides=False):
     path.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
         z.writestr("[Content_Types].xml", ct)
-        z.writestr("_rels/.rels", rels([("rId1", "officeDocument", "ppt/presentation.xml")]))
+        z.writestr("_rels/.rels", rels([("rId1", "officeDocument", "ppt/presentation.xml")]
+                                       + ([("rId2", "thumbnail", "docProps/thumbnail.jpeg"), ("rId3", "extended-properties", "docProps/app.xml")] if remnants else [])))
+        if remnants:   # Reste der Originalfolien, die ein Showcase nicht weitergeben darf
+            z.writestr("docProps/thumbnail.jpeg", b"\xff\xd8" + SECRET.encode())
+            z.writestr("docProps/app.xml", HDR + '<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties">'
+                       f'<Slides>2</Slides><HeadingPairs><vt:vector xmlns:vt="x"><vt:lpstr>Folientitel</vt:lpstr></vt:vector></HeadingPairs>'
+                       f'<TitlesOfParts><vt:vector xmlns:vt="x"><vt:lpstr>{SECRET}-TITEL</vt:lpstr></vt:vector></TitlesOfParts></Properties>')
+            z.writestr("ppt/comments/comment1.xml", HDR + f"<p:cmLst xmlns:p='urn:p'><p:cm>{SECRET}-KOMMENTAR</p:cm></p:cmLst>")
+            z.writestr("ppt/commentAuthors.xml", HDR + "<p:cmAuthorLst xmlns:p='urn:p'/>")
+            z.writestr("ppt/media/nur-folie.png", png(8, 8, (9, 9, 9)) + SECRET.encode())
+            z.writestr("ppt/embeddings/tabelle.bin", b"\0" * 2048 + SECRET.encode())
         z.writestr("ppt/presentation.xml", pres)
         z.writestr("ppt/_rels/presentation.xml.rels", rels([("rId1", "slideMaster", "slideMasters/slideMaster1.xml")]
-                                                           + ([("rId2", "slide", "slides/slide1.xml"), ("rId3", "slide", "slides/slide2.xml")] if slides else [])))
+                                                           + ([("rId2", "slide", "slides/slide1.xml"), ("rId3", "slide", "slides/slide2.xml")] if slides else [])
+                                                           + ([("rId4", "commentAuthors", "commentAuthors.xml")] if remnants else [])))
         if slides:
             z.writestr("ppt/slides/slide1.xml", slide1); z.writestr("ppt/slides/slide2.xml", slide2)
-            z.writestr("ppt/slides/_rels/slide1.xml.rels", rels([("rId1", "slideLayout", "../slideLayouts/slideLayout1.xml")]))
+            z.writestr("ppt/slides/_rels/slide1.xml.rels", rels([("rId1", "slideLayout", "../slideLayouts/slideLayout1.xml")]
+                                                                + ([("rId2", "image", "../media/nur-folie.png"), ("rId3", "oleObject", "../embeddings/tabelle.bin"),
+                                                                    ("rId4", "comments", "../comments/comment1.xml")] if remnants else [])))
             z.writestr("ppt/slides/_rels/slide2.xml.rels", rels([("rId1", "slideLayout", "../slideLayouts/slideLayout2.xml")]))
         z.writestr("ppt/theme/theme1.xml", theme_xml())
         z.writestr("ppt/slideMasters/slideMaster1.xml", master)

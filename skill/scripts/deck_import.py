@@ -77,51 +77,83 @@ def retitle_first_slide(body):
 
 
 def move_images(body, search_roots, assets):
-    """Kopiert referenzierte Bilder nach assets/ und schreibt die Pfade im Markdown um. Nur Dateien unterhalb der Suchwurzeln."""
+    """Kopiert referenzierte Bilder nach assets/ und schreibt die Pfade im Markdown um.
+
+    Zuordnung über den relativen Pfad unterhalb der Suchwurzeln (Basisname nur, wenn eindeutig). URL-kodierte Pfade
+    (%20) werden dekodiert. Gefährliche Schemata (file:, javascript: …) werden entfernt und gemeldet.
+    """
+    from urllib.parse import unquote
     assets.mkdir(parents=True, exist_ok=True)
     roots = [Path(r).resolve() for r in search_roots]
-    found = {}
+    by_rel, by_name = {}, {}
     for r in roots:
-        for p in r.rglob("*"):
-            if p.is_file() and p.suffix.lower() in IMAGE_EXT:
-                found.setdefault(p.name, p)
-    used, missing = {}, []
+        for p in sorted(r.rglob("*")):
+            if p.is_file() and not p.is_symlink() and p.suffix.lower() in IMAGE_EXT:
+                by_rel.setdefault(p.relative_to(r).as_posix(), p)
+                by_name.setdefault(p.name, []).append(p)
+    used, missing, blocked = {}, [], []
+
+    def lookup(ref):
+        norm = posixpath_norm(unquote(ref))
+        if norm in by_rel:
+            return by_rel[norm]
+        # relative Angabe, die mit dem Pfad unterhalb der Wurzel endet (oder umgekehrt) — nur wenn eindeutig
+        hits = [p for rel, p in by_rel.items() if rel.endswith("/" + norm) or norm.endswith("/" + rel)]
+        if len(hits) == 1:
+            return hits[0]
+        if hits:
+            return None
+        cands = by_name.get(Path(norm).name, [])
+        return cands[0] if len(cands) == 1 else None
 
     def target_for(ref):
-        name = Path(ref).name
-        if name not in found:
+        src = lookup(ref)
+        if src is None:
             missing.append(ref)
             return None
-        if name not in used:
+        key = str(src)
+        if key not in used:
+            name = src.name
             dst = assets / name
             n = 1
             while dst.exists():                       # nie ein vorhandenes Bild überschreiben
                 dst = assets / f"{Path(name).stem}-{n}{Path(name).suffix}"
                 n += 1
-            shutil.copy(found[name], dst)
-            used[name] = f"assets/{dst.name}"
-        return used[name]
+            shutil.copy(src, dst)
+            used[key] = f"assets/{dst.name}"
+        return used[key]
 
-    def sub_md(m):
+    def sub(m):
         ref = m.group("p")
         if re.match(r"^(https?:|data:|assets/)", ref):
             return m.group(0)
+        if re.match(r"^[A-Za-z][A-Za-z0-9+.\-]*:", ref):       # file:, javascript:, ftp: …
+            blocked.append(ref)
+            return f"{m.group('pre')}about:blank{m.group('post')}"
         new = target_for(ref)
         return m.group(0) if new is None else f"{m.group('pre')}{new}{m.group('post')}"
 
-    body = re.sub(r"(?P<pre>!\[[^\]]*\]\()(?P<p>[^)\s]+)(?P<post>[^)]*\))", sub_md, body)
-    body = re.sub(r"""(?P<pre>\bsrc=["'])(?P<p>[^"']+)(?P<post>["'])""", sub_md, body)
-    return body, sorted(set(missing))
+    body = re.sub(r"(?P<pre>!\[[^\]]*\]\()(?P<p>[^)\s]+)(?P<post>[^)]*\))", sub, body)
+    body = re.sub(r"""(?P<pre>\bsrc=["'])(?P<p>[^"']+)(?P<post>["'])""", sub, body)
+    return body, sorted(set(missing)), sorted(set(blocked))
+
+
+def posixpath_norm(ref):
+    import posixpath
+    ref = ref.replace("\\", "/")
+    while ref.startswith("./"):
+        ref = ref[2:]
+    return posixpath.normpath(ref) if ref else ref
 
 
 def build_markdown(raw, frontmatter, search_roots, assets):
     _, body = split_frontmatter(raw)
     body = strip_converter_header(body)
     body, titled = retitle_first_slide(body)
-    body, missing = move_images(body, search_roots, assets)
+    body, missing, blocked = move_images(body, search_roots, assets)
     body = re.sub(r"\n{3,}", "\n\n", body).strip() + "\n"
     slides = len(re.split(r"\n---\s*\n", body))
-    return f"---\n{frontmatter}---\n\n{COMPAT_STYLE}\n{body}", {"slides": slides, "title_slide": titled, "missing_images": missing}
+    return f"---\n{frontmatter}---\n\n{COMPAT_STYLE}\n{body}", {"slides": slides, "title_slide": titled, "missing_images": missing, "blocked_refs": blocked}
 
 
 def convert(pptx, tool, workdir):
