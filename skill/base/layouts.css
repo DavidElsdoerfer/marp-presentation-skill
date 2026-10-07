@@ -1,0 +1,379 @@
+/* ════════════════════════════════════════════════
+   INHALTSFOLIE (Standard)
+   ::before  → Logo, oben rechts
+   ::after   → Seitenzahl, unten rechts
+   ════════════════════════════════════════════════ */
+
+section {
+  font-family: var(--font);
+  font-size: 24px;
+  line-height: 1.6;
+  color: var(--text);
+  background: var(--white);
+  padding: 68px 64px 72px;
+  box-sizing: border-box;
+  border-bottom: 5px solid var(--primary);
+  position: relative;
+}
+
+/* Logo – oben rechts */
+section::before {
+  content: '';
+  position: absolute;
+  top: 18px;
+  right: 64px;
+  width: 88px;
+  height: 33px;
+  background: var(--logo) no-repeat right center / contain;
+  opacity: 0.55;
+}
+
+/* Footer – absolut unten, gleiche Linie wie Seitenzahl */
+footer {
+  position: absolute;
+  bottom: 14px;
+  left: 64px;
+  right: 110px;
+  height: 20px;
+  line-height: 20px;
+  padding: 0;
+  text-align: center;
+  font-size: 0.62em;
+  color: var(--muted);
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* Kein Footer auf Sonder-Folien */
+section.title footer,
+section.section footer,
+section.closing footer { display: none; }
+
+/* Seitenzahl – gleiche Linie wie Footer.
+   padding: 0 ist KRITISCH: Marp-Scaffold setzt padding:inherit auf ::after,
+   sonst erbt es padding-bottom von section und der Text rutscht hoch.   */
+section::after {
+  content: attr(data-marpit-pagination);
+  position: absolute;
+  bottom: 14px;
+  right: 64px;
+  height: 20px;
+  line-height: 20px;
+  padding: 0;
+  font-size: 0.62em;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+}
+
+/* ── Typografie ──────────────────────────────── */
+
+h1, h2, h3, h4 { margin-top: 0; line-height: 1.2; }
+
+h1 {
+  font-size: 1.75em;
+  font-weight: 300;
+  color: var(--dark);
+  border-left: 5px solid var(--primary);
+  padding-left: 18px;
+  margin-bottom: 0.7em;
+}
+
+h2 {
+  font-size: 1.15em;
+  font-weight: 500;
+  color: var(--primary);
+  margin-bottom: 0.4em;
+}
+
+h3 {
+  font-size: 1em;
+  font-weight: 600;
+  color: var(--dark);
+  margin-bottom: 0.3em;
+}
+
+p  { margin-bottom: 0.8em; }
+ul, ol { padding-left: 1.3em; }
+li { margin-bottom: 0.35em; }
+
+strong { color: var(--primary-dk); font-weight: 600; }
+em     { color: var(--muted); font-style: normal; font-size: 0.9em; }
+a      { color: var(--primary); text-decoration: none; }
+
+/* ── Tabellen ────────────────────────────────── */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.87em;
+  margin-top: 0.4em;
+}
+
+th {
+  background: var(--dark);
+  color: var(--white);
+  padding: 9px 14px;
+  font-weight: 400;
+  text-align: left;
+  letter-spacing: 0.02em;
+}
+
+td {
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+tr:nth-child(even) td { background: var(--light); }
+
+/* ── Infobox ─────────────────────────────────── */
+
+blockquote {
+  margin: 0.8em 0;
+  padding: 12px 20px;
+  background: var(--primary-xl);
+  border-left: 4px solid var(--primary);
+  border-radius: 0 4px 4px 0;
+  color: var(--primary-dk);
+  font-size: 0.92em;
+}
+
+blockquote p { margin: 0; }
+
+code {
+  font-size: 0.82em;
+  background: var(--light);
+  padding: 2px 7px;
+  border-radius: 4px;
+  color: var(--primary-dk);
+}
+
+/* ════════════════════════════════════════════════
+   TITELFOLIE  (_class: title)
+   Aufbau (analog AUMOVIO-Pattern):
+   - Logo weiß oben links
+   - Großer Titel (h1) bei ~18% von oben, weißer Trennstrich
+   - Untertitel (h2) direkt darunter
+   - Meta-Zeile ganz unten: Datum links, Name/Ort rechts,
+     Trennlinie oben (border-top), via <div class="title-meta"> oder <p>
+   - Optional: Hintergrundbild via Marp ![bg]
+   ════════════════════════════════════════════════ */
+
+section.title {
+  background: linear-gradient(to bottom right, var(--primary) 0%, var(--dark) 100%);
+  color: var(--white);
+  display: flex;
+  flex-direction: column;
+  padding: 35px 64px 40px 64px;
+  border-bottom: none;
+}
+
+/* Logo weiß oben links */
+section.title::before {
+  top: 35px;
+  left: 35px;
+  right: auto;
+  bottom: auto;
+  width: 220px;
+  height: 36px;
+  background: var(--logo) no-repeat left top / contain;
+  filter: brightness(0) invert(1);
+  opacity: 0.95;
+  border: none;
+  border-radius: 0;
+  transform: none;
+}
+
+section.title::after { display: none; }
+
+section.title h1 {
+  font-size: 3.6em;
+  font-weight: 300;
+  color: var(--white);
+  border-left: none;
+  padding-left: 0;
+  margin-top: 6rem;
+  margin-bottom: 0.3rem;
+  line-height: 1.1;
+}
+
+/* Trennstrich nach Titel */
+section.title h1::after {
+  content: '';
+  display: block;
+  width: 80px;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.6);
+  margin-top: 0.7rem;
+  margin-bottom: 0.3rem;
+}
+
+section.title h2 {
+  font-size: 1.5em;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.85);
+  padding-left: 0;
+  margin-top: 0.4rem;
+  margin-bottom: 0;
+  line-height: 1.2;
+}
+
+/* Meta-Container: Datum links + Name/Ort rechts, mit Trennlinie oben.
+   Empfohlen: <div class="title-meta"><span>…</span><span>…</span></div> */
+section.title .title-meta {
+  margin-top: auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.78em;
+  color: rgba(255, 255, 255, 0.75);
+  border-top: 1px solid rgba(255, 255, 255, 0.3);
+  padding-top: 0.5rem;
+  letter-spacing: 0.04em;
+}
+
+/* Fallback: einfaches <p> wirkt als Meta-Zeile mit border-top */
+section.title > p {
+  margin-top: auto;
+  margin-bottom: 0;
+  font-size: 0.78em;
+  color: rgba(255, 255, 255, 0.75);
+  border-top: 1px solid rgba(255, 255, 255, 0.3);
+  padding-top: 0.5rem;
+  letter-spacing: 0.04em;
+}
+
+/* ════════════════════════════════════════════════
+   ABSCHNITTSTRENNER  (_class: section)
+   Markdown:
+     <!-- _class: section -->
+     # Abschnittstitel
+     ## N         (aufsteigende Ganzzahl: 1, 2, 3 …)
+   ════════════════════════════════════════════════ */
+
+section.section {
+  background: var(--primary);
+  color: var(--white);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border-bottom: none;
+  padding-left: 80px;
+}
+
+/* Großer dekorativer Hintergrundkreis (optional — bei Bedarf entfernen) */
+section.section::before {
+  content: '';
+  position: absolute;
+  right: -100px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 440px;
+  height: 440px;
+  border-radius: 50%;
+  border: 70px solid rgba(255, 255, 255, 0.1);
+  background: none;
+}
+
+section.section::after { display: none; }
+
+section.section h1 {
+  font-size: 2.2em;
+  font-weight: 200;
+  color: var(--white);
+  border-left: 5px solid rgba(255, 255, 255, 0.6);
+  padding-left: 22px;
+  margin-bottom: 0.2em;
+}
+
+/* Abschnittsnummer: groß, dekorativ rechts unten */
+section.section h2 {
+  position: absolute;
+  right: 2%;
+  bottom: 4%;
+  top: auto;
+  transform: none;
+  font-size: 16em;
+  font-weight: 700;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.13);
+  letter-spacing: -0.04em;
+  padding-left: 0;
+  margin: 0;
+  text-align: right;
+}
+
+/* ════════════════════════════════════════════════
+   ABSCHLUSSFOLIE  (_class: closing)
+   Großer Titel + Untertitel + Kontaktinfo zentriert.
+   Logo weiß unten rechts. Kein Footer, keine Seitenzahl.
+   ════════════════════════════════════════════════ */
+
+section.closing {
+  background: linear-gradient(to bottom, var(--primary) 6px, var(--dark) 6px) var(--dark);
+  color: var(--white);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border-bottom: none;
+}
+
+/* Logo weiß unten rechts */
+section.closing::before {
+  top: auto;
+  bottom: 28px;
+  left: auto;
+  right: 32px;
+  width: 90px;
+  height: 34px;
+  background: var(--logo) no-repeat right center / contain;
+  filter: brightness(0) invert(1);
+  opacity: 0.65;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  transform: none;
+}
+
+section.closing::after { display: none; }
+
+section.closing h1 {
+  font-size: 2.8em;
+  font-weight: 200;
+  color: var(--white);
+  border-left: 5px solid var(--primary);
+  padding-left: 22px;
+  margin-bottom: 0.6em;
+}
+
+section.closing h2 {
+  color: var(--primary-lt);
+  font-size: 0.95em;
+  font-weight: 400;
+  padding-left: 27px;
+  margin-bottom: 0.15em;
+}
+
+section.closing p {
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 0.78em;
+  padding-left: 27px;
+  margin-bottom: 0.1em;
+}
+
+/* ════════════════════════════════════════════════
+   ZWEISPALTIG  (_class: cols)
+   ════════════════════════════════════════════════ */
+
+section.cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto 1fr;
+  column-gap: 48px;
+}
+
+section.cols h1 {
+  grid-column: 1 / -1;
+}
+

@@ -1,0 +1,539 @@
+/* ════════════════════════════════════════════════════════════════════
+   Portiert aus wiki/assets/themes/projekt.css (S6-CLI-Agent-Frameworks-
+   Schulungsmaterial) — Komponenten-Klassen für Agenda, Box-Muster,
+   Info-Callouts, Flow/Process-Diagramme, Accordion-Layout, Icon-Matrix,
+   Mehrspalten-Layouts (3/4) und Plain-Table. Farbvariablen auf die
+   autarkit-Palette (--primary/--dark/--muted/--light/--border/--white)
+   umgemappt. Bestehende title/section/cols/closing-Klassen oben in
+   dieser Datei bleiben unverändert.
+   ════════════════════════════════════════════════════════════════════ */
+/* Tabellenfolie ohne Zebra (Folie 5+6): Alle Datenzeilen weiß. */
+.table-plain tr td {
+  background-color: var(--white);
+}
+.columns-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.columns-4 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+/* ── Agenda-Komponente ─────────────────────────────────────────────
+   PPTX-Quelle: Slide-Layouts "One column Agenda with Subline" (Standard,
+   ≤5–6 Kapitel) und "Two column Agenda" (kompakt, 7+ Kapitel, bis 18).
+   Struktur pro Kapitel: Headline (+ optional Subline) links, große
+   Nummer rechts, dünne Trennlinie zwischen den Einträgen.               */
+
+/* Standard-Variante (one column, mit Subline) */
+.agenda-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.35rem 0;
+}
+
+.agenda-headline {
+  font-size: 1.8rem;      /* kompakter als 30pt-PPTX-Maß — 4–6 Items müssen auf die Folie passen */
+  font-weight: 400;
+  color: var(--dark);
+  line-height: 1.15;
+  margin: 0;
+}
+
+.agenda-subline {
+  font-size: 1.1rem;      /* kompakter als 18pt-PPTX-Maß, gleicher Grund */
+  font-weight: 400;
+  color: var(--muted);
+  line-height: 1.2;
+  margin: 0.1rem 0 0 0;
+}
+
+.agenda-number {
+  font-size: 1.8rem;
+  font-weight: 400;
+  color: var(--dark);
+  line-height: 1.15;
+  text-align: right;
+  min-width: 2.2rem;
+  flex-shrink: 0;
+}
+
+.agenda-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0;
+}
+
+/* Kompakt-Variante (two column, ohne Subline, 7+ Kapitel) */
+.agenda-compact {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 2.5rem;
+}
+
+.agenda-compact .agenda-item {
+  padding: 0.25rem 0;
+  gap: 0.5rem;
+}
+
+.agenda-compact .agenda-headline {
+  font-size: 1.2rem;      /* kompakteste Stufe — bis zu 18 Items müssen passen */
+}
+
+.agenda-compact .agenda-number {
+  font-size: 1.2rem;
+  min-width: 1.8rem;
+}
+/* ── Box-Muster (orangefarbener Header + Inhaltsbereich mit Rahmen) ──
+   PPTX-Quelle: mehrere Content-Layouts mit Label + Textfeld.
+   Verwendung: Definitionen, Hinweise, strukturierte Punkte.             */
+
+/* Box-Header (solid orange) */
+.box-header {
+  background: var(--primary);
+  color: var(--white);
+  padding: 0.2rem 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Box-Body (Rahmen, kein Fill) */
+.box-body {
+  background: var(--light);
+  border: 1px solid var(--border);
+  border-top: none;
+  padding: 0.6rem 0.7rem;
+  font-size: 0.82rem;
+  line-height: 1.7;
+}
+/* Bullet-Marker: Em-Dash (—) statt Punkt — 1:1 aus PPTX (list.bullet = "–") */
+.box-body ul {
+  list-style: none;
+  padding-left: 1.2rem;
+  margin: 0;
+}
+.box-body ul li {
+  position: relative;
+}
+.box-body ul li::before {
+  content: "–";
+  position: absolute;
+  left: -1.1rem;
+  color: var(--primary);
+}
+
+/* Info-Callout (hell-oranger Tint var(--callout), dunkler Text — accent1 mit
+   Helligkeits-Tint, gemessen via SVG-Export der PPTX. Dient als Footer-Span
+   unter 2-Spalten-Bereich auf Folie 3. Unterschied zu .box-header: volle
+   Brand-Orange + weißer Text vs. Tint + dunkler Text.) */
+.info-callout {
+  background: var(--callout);
+  color: var(--dark);
+  padding: 0.5rem 0.9rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  flex-shrink: 0;   /* bleibt auf natürlicher Höhe, wächst nicht */
+}
+/* ── Accordion-Layout (Folie 8) ─────────────────────────────────────────
+   PPTX-Quelle: Folie 8 "Four Content Areas with Boxes" (manuell gebaut).
+   Struktur: orangener Sub-Header (volle Breite) + 4 Zeilen mit je
+   3 Spalten: Label (var(--grey-label)) | Mitte (var(--grey-mid)) | Rechts (var(--light)).
+   Weiße Trennlinien zwischen Zeilen. Zeilen 2+3: rechts-zeigendes Dreieck
+   (CSS border-trick) am rechten Rand der Mittel-Spalte.
+   Spaltenbreite: ~19% : ~34% : ~47% (gemessen via SVG-Export). */
+.accordion-layout {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.accordion-layout-header {
+  background: var(--primary);
+  color: white;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+.accordion-layout-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.accordion-row {
+  display: grid;
+  grid-template-columns: 2fr 4fr 5fr;
+  border-bottom: 2px solid var(--white);
+  flex: 1;
+  min-height: 0;
+}
+.accordion-row:last-child {
+  border-bottom: none;
+}
+.accordion-label {
+  background: var(--grey-label);
+  color: var(--white);
+  padding: 0.4rem 0.7rem;
+  display: flex;
+  align-items: center;
+  font-size: 0.85rem;
+}
+.accordion-mid {
+  background: var(--grey-mid);
+  padding: 0.4rem 0.7rem;
+  display: flex;
+  align-items: center;
+  position: relative;
+  font-size: 0.85rem;
+}
+/* Rechts-zeigendes Dreieck für kollabierte Zeilen */
+.accordion-mid.has-arrow::after {
+  content: '';
+  position: absolute;
+  right: -10px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-top: 10px solid transparent;
+  border-bottom: 10px solid transparent;
+  border-left: 10px solid var(--grey-mid);
+  z-index: 2;
+}
+.accordion-right {
+  background: var(--light);
+  padding: 0.4rem 0.7rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  font-size: 0.85rem;
+}
+
+/* Icon-Matrix (Vergleichskarten-Raster, 2 Spalten × n Zeilen)
+   PPTX-Quelle: Folie 7 "Four Content Areas with Boxes" (Karten-Variante,
+   6 Karten = 2 Spalten × 3 Zeilen). Jede Karte: Header-Bar (identisch zu
+   .box-header — orange, weißer Text) + hellgrauer Body (Grey100 var(--light))
+   mit 3 Bild/Icon-Platzhaltern (Fill=accent3=--dark) + Beschriftung. */
+.icon-matrix {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem 1.5rem;
+}
+
+/* Kartentitel: .box-header wiederverwenden (siehe Box-Muster-Sektion oben) */
+
+.icon-matrix-body {
+  background: var(--light);
+  display: flex;
+  gap: 0.6rem;
+  padding: 0.6rem 0.5rem;
+}
+
+.icon-matrix-item {
+  flex: 1;
+  text-align: center;
+  font-size: 0.68rem;
+}
+
+.icon-matrix-icon-box {
+  background: var(--dark);
+  color: var(--white);
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  margin-bottom: 0.3rem;
+}
+/* ── Flow / Process Patterns ─────────────────────────────────────────
+   Abgeleitet aus PPTX Folien 9 (Four Content Areas with Boxes)
+   und Folie 10 (Horizontal Swimlane). Siehe wiki/flow-diagrams.md.   */
+
+/* Box-Header: orange solid (aktive Schritte, Reihe 2 im Grid) */
+.flow-header {
+  background: var(--primary);
+  color: var(--white);
+  padding: 0.2rem 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Box-Header: Outline-Variante (inaktive Schritte, Reihe 1 im Grid) */
+.flow-header-outline {
+  border: 1px solid var(--primary);
+  color: var(--primary);
+  padding: 0.2rem 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Box-Header: Pfeilform (Swimlane — Folie 10) */
+.flow-header-arrow {
+  background: var(--primary);
+  color: var(--white);
+  padding: 0.25rem 0.9rem 0.25rem 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 0 100%);
+}
+
+/* Box-Body: grauer Inhaltsbereich */
+.flow-body {
+  background: var(--light);
+  padding: 0.55rem 0.7rem;
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+/* Swimlane-Body: wie .flow-body, aber flex:1 für gleichmäßige Höhe */
+.swimlane-body {
+  flex: 1;
+  background: var(--light);
+  padding: 0.55rem 0.7rem;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  margin-top: 2px;
+}
+
+/* Swimlane-Footer: dünne Text-Leiste am unteren Rand */
+.flow-footer {
+  border: 1px solid var(--primary);
+  padding: 0.15rem 0.5rem;
+  font-size: 0.75rem;
+  color: var(--dark);
+}
+
+/* Swimlane-Spalte: vertikale Flex-Box */
+.swimlane-step {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* Horizontaler Pfeil-Verbinder (→) zwischen Flow-Schritten */
+.flow-arrow {
+  display: flex;
+  align-items: flex-start;
+  padding-top: 1.65rem;   /* Bündig mit Oberkante der Box-Header */
+  padding-left: 0.15rem;
+  padding-right: 0.15rem;
+}
+
+.flow-arrow::before {
+  content: '';
+  display: block;
+  width: 28px;
+  height: 2px;
+  background: var(--primary);
+  position: relative;
+  top: 0.55rem;
+}
+
+.flow-arrow::after {
+  content: '▶';
+  color: var(--primary);
+  font-size: 0.9rem;
+  line-height: 1;
+  margin-top: 0.1rem;
+}
+
+/* Horizontale Flow-Container (Schritte + Pfeile alternierend)
+   Verwendung: <div class="flow-2|3|4"> ... </div>             */
+.flow-2 {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: start;
+  gap: 0;
+  margin-top: 1rem;
+}
+
+.flow-3 {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1fr;
+  align-items: start;
+  gap: 0;
+  margin-top: 1rem;
+}
+
+.flow-4 {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
+  align-items: start;
+  gap: 0;
+  margin-top: 1rem;
+}
+
+/* Wrap-Around Verbinder (U-Bogen von rechts nach links)
+   Für .flow-3: margin calc((100%-0.8rem)/6) (Spaltenmitte-Abstand)
+   Für .flow-2: margin calc((100%-0.8rem)/4)                          */
+.flow-wrap-3 {
+  margin: 0.5rem calc((100% - 0.8rem) / 6) 0.4rem calc((100% - 0.8rem) / 6);
+  border-left: 2px solid var(--primary);
+  border-bottom: 2px solid var(--primary);
+  border-right: 2px solid var(--primary);
+  height: 0.8rem;
+  position: relative;
+}
+
+.flow-wrap-3::before {
+  content: '';
+  position: absolute;
+  bottom: -7px;
+  left: calc(50% - 4px);
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 7px solid var(--primary);
+}
+
+/* Rückpfeil-Bogen für Vertikalen Loop (Pattern 4)
+   Pfeil oben links zeigt nach oben (Rückkehr-Indikator)              */
+.flow-loop-3 {
+  margin: 0.6rem calc((100% - 0.8rem) / 6) 0.5rem calc((100% - 0.8rem) / 6);
+  border-left: 2px solid var(--primary);
+  border-bottom: 2px solid var(--primary);
+  border-right: 2px solid var(--primary);
+  height: 0.9rem;
+  position: relative;
+}
+
+.flow-loop-3::before {
+  content: '';
+  position: absolute;
+  top: -7px;
+  left: -5px;
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-bottom: 7px solid var(--primary);
+}
+
+.flow-loop-3::after {
+  content: attr(data-label);   /* Label per data-label="..." Attribut */
+  position: absolute;
+  bottom: -0.6rem;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.75rem;
+  color: var(--primary);
+  font-weight: 600;
+  background: var(--white);
+  padding: 0 0.5rem;
+  white-space: nowrap;
+}
+
+/* ── Vertikaler Flow (für schmale Spalten / kompakte Darstellung) ────
+   Schritte: .flow-header/.flow-header-outline + .flow-vertical-step
+   Pfeile:   .flow-vertical-arrow (leeres <div>) → CSS border-triangle ↓
+   Loop-Hinweis: .flow-vertical-return (nein-Zweig als Text)
+   Voller Loop mit U-Bogen: .flow-loop-vertical (siehe unten)           */
+
+.flow-vertical {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Mindestbreite damit kurze Labels gleichbreit aussehen */
+.flow-vertical-step {
+  min-width: 140px;
+  text-align: center;
+}
+
+/* Vertikaler Pfeil ↓ zwischen Schritten — leeres <div>, Pfeil via CSS */
+.flow-vertical-arrow {
+  align-self: center;
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 7px solid var(--primary);
+  margin: 0.35rem 0;
+}
+
+/* Hinweis auf Rücksprung (nein-Zweig) — klein, kursiv, links ausgerichtet */
+.flow-vertical-return {
+  font-size: 0.7rem;
+  color: var(--primary);
+  font-weight: 600;
+  font-style: italic;
+  align-self: flex-start;
+  padding-left: 0.3rem;
+  line-height: 1.6;
+  border-left: 2px solid var(--primary);
+  margin: 0.15rem 0;
+}
+
+/* ── Vertikaler Loop mit U-Bogen rechts (Pattern 5) ─────────────────
+   Für schmale Spalten: Boxen links, U-Bogen rechts, Pfeil ◄ oben.
+   Verwendung:
+     <div class="flow-loop-vertical">
+       <div class="flow-loop-vertical-steps">
+         <div>
+           <div class="flow-header">01 · Denken</div>
+           <div class="flow-body">Text</div>
+         </div>
+         <div class="flow-vertical-arrow"></div>
+         <div>
+           <div class="flow-header">02 · Werkzeug</div>
+           <div class="flow-body">Text</div>
+         </div>
+         <div class="flow-vertical-arrow"></div>
+         <div>
+           <div class="flow-header">03 · Auswerten</div>
+           <div class="flow-body">Text</div>
+         </div>
+       </div>
+       <div class="flow-loop-vertical-bow"></div>
+     </div>                                                             */
+
+.flow-loop-vertical {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  margin: 0.5rem 0;
+}
+
+.flow-loop-vertical-steps {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+/* U-Bogen rechts: border-top + border-right + border-bottom */
+.flow-loop-vertical-bow {
+  width: 1.2rem;
+  margin-left: 0.6rem;
+  border-top: 2px solid var(--primary);
+  border-right: 2px solid var(--primary);
+  border-bottom: 2px solid var(--primary);
+  position: relative;
+}
+
+/* Pfeil ◄ oben links am Bogen — Rückkehr zu Schritt 1 */
+.flow-loop-vertical-bow::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: -7px;
+  width: 0;
+  height: 0;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-right: 7px solid var(--primary);
+}

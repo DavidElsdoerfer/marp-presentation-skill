@@ -1,0 +1,19 @@
+/* Brand-Tokens autarkit — nur Variablen. Layouts: base/layouts.css.
+   --logo wird vom Build-Skript aus assets/logo.* als Data-URI eingesetzt. */
+:root {
+  --primary:    #d97706;   /* Hauptfarbe (Akzente, Hervorhebungen) */
+  --primary-dk: #ad5f04;   /* Dunklere Variante (Strong, Code) */
+  --primary-lt: #f88808;   /* Hellere Variante (Subtitles, Highlights) */
+  --primary-xl: #f2ebe2;   /* Sehr helle Variante (Infobox-BG) */
+  --dark:       #222222;   /* Dunkler Hintergrund, Überschriften */
+  --text:       #3a3a3a;   /* Fließtext */
+  --muted:      #757575;   /* Footer, Seitenzahl, Metainfo */
+  --border:     #e0e0e0;   /* Tabellenrahmen */
+  --light:      #f0f0f0;   /* Zebra, Box-Body */
+  --white:      #ffffff;
+  --grey-label: #aaaaaa;   /* Accordion-Label */
+  --grey-mid:   #dcdcdc;   /* Accordion-Mitte */
+  --callout:    #ffb39c;   /* Info-Callout */
+  --font:       -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI",
+                Helvetica, Arial, sans-serif;
+}
