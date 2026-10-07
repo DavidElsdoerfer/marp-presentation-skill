@@ -1,3 +1,4 @@
+/* @block chrome */
 /* ════════════════════════════════════════════════
    INHALTSFOLIE (Standard)
    ::before  → Logo, oben rechts
@@ -66,9 +67,10 @@ section::after {
   letter-spacing: 0.05em;
 }
 
+/* @end chrome */
 /* ── Typografie ──────────────────────────────── */
 
-h1, h2, h3, h4 { margin-top: 0; line-height: 1.2; }
+h1, h2, h3, h4 { margin-top: 0; line-height: 1.2; font-family: var(--font-heading, var(--font)); }
 
 h1 {
   font-size: 1.75em;
@@ -149,6 +151,7 @@ code {
   color: var(--primary-dk);
 }
 
+/* @block title */
 /* ════════════════════════════════════════════════
    TITELFOLIE  (_class: title)
    Aufbau:
@@ -244,6 +247,8 @@ section.title > p {
   letter-spacing: 0.04em;
 }
 
+/* @end title */
+/* @block section */
 /* ════════════════════════════════════════════════
    ABSCHNITTSTRENNER  (_class: section)
    Markdown:
@@ -304,6 +309,8 @@ section.section h2 {
   text-align: right;
 }
 
+/* @end section */
+/* @block closing */
 /* ════════════════════════════════════════════════
    ABSCHLUSSFOLIE  (_class: closing)
    Großer Titel + Untertitel + Kontaktinfo zentriert.
@@ -362,6 +369,8 @@ section.closing p {
   margin-bottom: 0.1em;
 }
 
+/* @end closing */
+/* @block cols */
 /* ════════════════════════════════════════════════
    ZWEISPALTIG  (_class: cols)
    ════════════════════════════════════════════════ */
@@ -377,3 +386,5 @@ section.cols h1 {
   grid-column: 1 / -1;
 }
 
+
+/* @end cols */

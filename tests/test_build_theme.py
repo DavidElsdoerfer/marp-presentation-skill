@@ -105,6 +105,47 @@ class BuildTheme(unittest.TestCase):
         self.assertIn("section.kpi", css)
         self.assertGreater(css.index("section.kpi"), css.index("section.closing"))  # nach Basis-Layouts
 
+    def test_overrides_remove_base_blocks(self):
+        d = make_brand(self.t / "s", "ov", overrides=["title", "chrome"])
+        out = self.t / "o.css"
+        self.assertEqual(run(d, out).returncode, 0)
+        css = out.read_text()
+        self.assertNotIn("section.title {", css)
+        self.assertNotIn("\nsection::before {", css)       # chrome entfernt (nur das reine section::before)
+        self.assertIn("\nsection.section::before {", css)  # Abschnittsfolie bleibt
+        self.assertIn("section.section {", css)             # nicht überschriebene Blöcke bleiben
+        self.assertIn("section.closing {", css)
+        self.assertIn("h1, h2, h3, h4", css)                # Typografie bleibt
+
+    def test_unknown_override_rejected(self):
+        d = make_brand(self.t / "s", "badov", overrides=["gibtsnicht"])
+        r = run(d, self.t / "b.css")
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("unbekannte overrides", r.stderr)
+
+    def test_css_urls_inlined_and_traversal_rejected(self):
+        d = make_brand(self.t / "s", "urls")
+        (d / "assets" / "bg.png").write_bytes(b"\x89PNGfake")
+        (d / "layouts.css").write_text('section.x { background: url("assets/bg.png") center / cover; }\n')
+        out = self.t / "u.css"
+        self.assertEqual(run(d, out).returncode, 0)
+        css = out.read_text()
+        self.assertIn("url('data:image/png;base64,", css)
+        self.assertNotIn("assets/bg.png", css)
+        (d / "layouts.css").write_text("section.x { background: url(../../../etc/hostname); }\n")
+        r = run(d, self.t / "u2.css")
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("außerhalb", r.stderr)
+
+    def test_external_and_data_urls_untouched(self):
+        d = make_brand(self.t / "s", "ext")
+        (d / "layouts.css").write_text("a{background:url(https://example.org/x.png)}b{background:url(data:image/png;base64,AAAA)}\n")
+        out = self.t / "e.css"
+        self.assertEqual(run(d, out).returncode, 0)
+        css = out.read_text()
+        self.assertIn("url(https://example.org/x.png)", css)
+        self.assertIn("url(data:image/png;base64,AAAA)", css)
+
 
 if __name__ == "__main__":
     unittest.main()

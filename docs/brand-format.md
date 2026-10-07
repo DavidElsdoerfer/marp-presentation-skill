@@ -11,6 +11,9 @@
 └── assets/        Logo, Hintergründe
 ```
 
+Importierte Brands (aus PPTX, siehe [import-workflow.md](import-workflow.md)) enthalten zusätzlich `custom.css`,
+`layouts.md`, `reference/` (Original-Renderings für `brand compare`) und `guidelines/`.
+
 ## brand.json
 ```json
 {
@@ -22,7 +25,13 @@
 }
 ```
 - `name` ist der Wert für `theme:` im Frontmatter der Decks.
-- Alle Pfade sind relativ zum Brand-Ordner und müssen darin bleiben. Pfade nach außen (`../`) lehnt der Build ab, weil Brands von Dritten stammen können.
+- `overrides`: Basis-Blöcke aus `base/layouts.css`, die das Brand durch eigene ersetzt (`chrome`, `title`, `section`, `closing`, `cols`).
+  Ohne diese Angabe wird `layouts.css` des Brands nur über die Basis gelegt.
+- `size`: `{ "name": "4:3", "w": 960, "h": 720 }` bei anderem Seitenverhältnis als 16:9. Der Build schreibt `/* @size … */`,
+  neue Decks erhalten `size: 4:3` im Frontmatter.
+- `layouts`, `custom_layouts`, `preview`, `palette`, `theme_fonts`, `source`, `background_mode`: vom Import erzeugt (Dokumentation und Vorschau).
+- Alle Pfade sind relativ zum Brand-Ordner und müssen darin bleiben. Pfade nach außen (`../`) lehnt der Build ab, weil Brands von Dritten stammen können. Relative `url(...)` in
+`tokens.css`, `layouts.css` und `custom.css` werden beim Build als Data-URI eingebettet.
 - Schriften werden als Data-URI eingebettet, das Theme bleibt eine Datei.
 - Schriftdateien sind meist lizenzpflichtig: nicht in öffentliche Repos legen.
 

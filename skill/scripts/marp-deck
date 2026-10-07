@@ -6,6 +6,11 @@
   marp-deck export pdf|html|pptx [DECK] [-o DATEI]
   marp-deck brand list
   marp-deck brand sync [DECK]
+  marp-deck brand showcase VORLAGE.pptx [--out ORDNER]
+  marp-deck brand import VORLAGE.pptx --name NAME [--backgrounds PDF|ORDNER] [--reference PDF|ORDNER]
+                         [--guidelines DATEI]... [--fonts ORDNER] [--map klasse=Layout]... [--no-render] [--out ORDNER]
+  marp-deck brand preview NAME [--out ORDNER]
+  marp-deck brand compare NAME [--out ORDNER]
   marp-deck doctor
 
 DECK ist der Deck-Ordner (Standard: aktueller Ordner oder genau ein Unterordner mit marp.config.mjs).
@@ -46,7 +51,7 @@ DECK_TEMPLATE = """\
 ---
 marp: true
 theme: {theme}
-paginate: true
+{size_line}paginate: true
 html: true
 footer: "{title}"
 ---
@@ -163,12 +168,14 @@ def cmd_new(a):
     (deck / "assets").mkdir()
     (deck / "assets" / ".gitkeep").write_text("")
     snapshot_brand(src, deck)
-    theme = json.loads((deck / "theme" / "brand" / "brand.json").read_text())["name"]
+    brand_meta = json.loads((deck / "theme" / "brand" / "brand.json").read_text())
+    theme = brand_meta["name"]
+    size_line = f"size: {brand_meta['size']['name']}\n" if brand_meta.get("size") else ""
     now = time.localtime()
     (deck / "marp.config.mjs").write_text(CONFIG)
     (deck / ".gitignore").write_text(DECK_GITIGNORE)
     (deck / f"{slug}.md").write_text(DECK_TEMPLATE.format(
-        theme=theme, title=title.replace('"', "'"), date=f"{MONTHS[now.tm_mon - 1]} {now.tm_year}"))
+        theme=theme, size_line=size_line, title=title.replace('"', "'"), date=f"{MONTHS[now.tm_mon - 1]} {now.tm_year}"))
     print(f"Deck angelegt: {deck}")
     print(f"  Quelle:  {deck / (slug + '.md')}")
     print(f"  Brand:   {theme} (Snapshot in theme/brand/)")
@@ -329,9 +336,77 @@ def cmd_export(a):
 
 # ── brand ──────────────────────────────────────────────────────────────────
 
+def brand_store():
+    store = os.environ.get("MARP_BRANDS_DIR")
+    return Path(store).expanduser() if store else Path.home() / ".config" / "marp-presentation" / "brands"
+
+
+def _load(name):
+    spec = importlib.util.spec_from_file_location(name, HERE / f"{name}.py")
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[name] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
 def cmd_brand(a):
     if a.sub == "list":
         bt.list_brands(None)
+        return
+    if a.sub == "showcase":
+        sc = _load("pptx_showcase")
+        src = Path(a.target)
+        out = Path(a.out) if a.out else Path.cwd()
+        out.mkdir(parents=True, exist_ok=True)
+        n = sc.build(src, out / f"{src.stem}-showcase-leer.pptx")
+        sc.build(src, out / f"{src.stem}-showcase-gefuellt.pptx", filled=True)
+        print(f"{n} Layouts. Erzeugt in {out}:")
+        print(f"  {src.stem}-showcase-leer.pptx       → in PowerPoint als PDF exportieren → brand import --backgrounds <pdf>")
+        print(f"  {src.stem}-showcase-gefuellt.pptx   → in PowerPoint als PDF exportieren → brand import --reference <pdf>")
+        return
+    if a.sub == "import":
+        bi = _load("brand_import")
+        if not a.name:
+            die("--name angeben")
+        out = Path(a.out).expanduser() if a.out else brand_store() / a.name
+        existed = out.exists()   # nur aufräumen, was dieser Lauf selbst angelegt hat
+        try:
+            res = bi.import_brand(a.target, a.name, out, a.backgrounds, not a.no_render, dict(m.split("=", 1) for m in a.map),
+                                  a.guidelines, a.fonts, a.reference)
+        except (bi.ImportError_, bi.px.PptxError, bi.sc.ShowcaseError) as e:
+            if not existed:
+                shutil.rmtree(out, ignore_errors=True)
+            die(str(e))
+        print(f"Brand '{res['name']}' angelegt: {res['dir']}")
+        print(f"  Hintergründe: {'gerendert (pixelgenau)' if res['mode'] == 'render' else 'aus Grafiken rekonstruiert (angenähert)'}")
+        for layout, classes in res["classes"].items():
+            print(f"  Layout '{layout}' → {', '.join(classes)}")
+        if res["semantic"].get("closing", "").endswith("(wie Titelfolie)"):
+            print("  Hinweis: kein Abschluss-Layout gefunden, 'closing' nutzt die Titelfolie (--map closing=<Layoutname> ändert das)")
+        for w in res["warnings"]:
+            print(f"  WARNUNG: {w}")
+        if res["guidelines"]:
+            print(f"  Guidelines kopiert ({', '.join(res['guidelines'])}); GUIDELINES.md muss noch ausgewertet werden")
+        print("  Nächste Schritte: brand preview/compare prüfen, tokens.css/custom.css bei Bedarf anpassen")
+        return
+    if a.sub in ("preview", "compare"):
+        bp = _load("brand_preview")
+        src = bt.resolve(a.target, None)
+        if a.sub == "preview":
+            out = Path(a.out) if a.out else Path.cwd() / f"{a.target}-vorschau"
+            args = argparse.Namespace(title=[f"Vorschau {a.target}"], brand=a.target, dir=str(out.parent), slug=out.name)
+            cmd_new(args)
+            deck = out.resolve()
+            (deck / f"{deck.name}.md").write_text(bp.preview_markdown(bp.load_meta(src)))
+            print(f"Vorschau-Deck: {deck} → marp-deck serve {deck}")
+            return
+        out = Path(a.out) if a.out else Path.cwd() / f"{a.target}-vergleich"
+        rows = bp.compare(src, out)
+        for r in rows:
+            ab = "n/a" if r["abweichung"] is None else f"{r['abweichung'] * 100:.1f} %"
+            print(f"  {r['class']:<24} {r['layout']:<24} Abweichung {ab}")
+        print(f"Bilder (Original | Marp | Differenz): {out}/*-vergleich.png")
+        print("Hinweis: rund 5 % sind Textglättung zwischen den Renderern, kein Layoutfehler.")
         return
     deck = find_deck(a.deck)
     snap = deck / "theme" / "brand"
@@ -374,10 +449,13 @@ def main():
     e.add_argument("-o", "--output")
     e.set_defaults(fn=cmd_export)
 
-    b = sp.add_parser("brand", help="Brands auflisten, Deck-Snapshot aktualisieren")
-    b.add_argument("sub", choices=["list", "sync"])
-    b.add_argument("deck", nargs="?")
-    b.set_defaults(fn=cmd_brand)
+    b = sp.add_parser("brand", help="Brands auflisten, importieren (PPTX), vergleichen, Deck-Snapshot aktualisieren")
+    b.add_argument("sub", choices=["list", "sync", "showcase", "import", "preview", "compare"])
+    b.add_argument("target", nargs="?", help="sync: Deck · showcase/import: PPTX · preview/compare: Brand-Name")
+    b.add_argument("--name"); b.add_argument("--out"); b.add_argument("--backgrounds"); b.add_argument("--reference")
+    b.add_argument("--guidelines", action="append", default=[]); b.add_argument("--fonts")
+    b.add_argument("--map", action="append", default=[]); b.add_argument("--no-render", action="store_true")
+    b.set_defaults(fn=lambda a: (setattr(a, "deck", a.target), cmd_brand(a)))
 
     d = sp.add_parser("doctor", help="Voraussetzungen prüfen")
     d.set_defaults(fn=cmd_doctor)

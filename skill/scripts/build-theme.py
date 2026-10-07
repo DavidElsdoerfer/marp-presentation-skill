@@ -15,7 +15,7 @@ Suchreihenfolge für Namen:
 Ergebnis: /* @theme <name> */ + tokens.css + --logo (Data-URI) + layouts.css
           + components.css (+ optional brand/layouts.css)
 """
-import argparse, base64, json, mimetypes, os, sys
+import argparse, base64, json, mimetypes, os, re, sys
 from pathlib import Path
 
 SKILL = Path(__file__).resolve().parent.parent
@@ -94,22 +94,51 @@ def font_faces(brand_dir, meta):
     return "".join(css)
 
 
+BLOCKS = ("chrome", "title", "section", "closing", "cols")
+BLOCK_RE = re.compile(r"/\* @block (\w+) \*/.*?/\* @end \1 \*/\n?", re.S)
+URL_RE = re.compile(r"""url\(\s*(?P<q>["']?)(?P<p>[^)"']+?)(?P=q)\s*\)""")
+
+
+def strip_blocks(css, overrides):
+    """Entfernt die Basis-Blöcke, die das Brand selbst ersetzt (brand.json "overrides")."""
+    unknown = [o for o in overrides if o not in BLOCKS]
+    if unknown:
+        sys.exit(f"brand.json: unbekannte overrides {unknown} (erlaubt: {', '.join(BLOCKS)})")
+    return BLOCK_RE.sub(lambda m: "" if m.group(1) in overrides else m.group(0), css)
+
+
+def inline_css_urls(css, brand_dir):
+    """Bettet relative url(...)-Verweise in Brand-CSS als Data-URI ein (Pfade müssen im Brand-Ordner bleiben)."""
+    def sub(m):
+        rel = m.group("p").strip()
+        if re.match(r"^(data:|https?:|//|#|var\()", rel):
+            return m.group(0)
+        path = safe_asset(brand_dir, rel)
+        mime = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+        data = base64.b64encode(path.read_bytes()).decode()
+        return f"url('data:{mime};base64,{data}')"
+    return URL_RE.sub(sub, css)
+
+
 def build(brand_dir, out):
     meta = json.loads((brand_dir / "brand.json").read_text())
     logo = safe_asset(brand_dir, meta["logo"])
     mime = mimetypes.guess_type(logo.name)[0] or "image/svg+xml"
     uri = f"data:{mime};base64," + base64.b64encode(logo.read_bytes()).decode()
+    size = meta.get("size")
     parts = [
         f"/* @theme {meta['name']} */\n",
+        f"/* @size {size['name']} {size['w']}px {size['h']}px */\n" if size else "",
         "/* GENERIERT von build-theme.py — nicht von Hand editieren (Quelle: Brand tokens.css + Skill base/) */\n",
         font_faces(brand_dir, meta),
-        (brand_dir / "tokens.css").read_text(),
+        inline_css_urls((brand_dir / "tokens.css").read_text(), brand_dir),
         f":root {{ --logo: url('{uri}'); }}\n",
-        (BASE / "layouts.css").read_text(),
+        strip_blocks((BASE / "layouts.css").read_text(), meta.get("overrides", [])),
         (BASE / "components.css").read_text(),
     ]
-    if (brand_dir / "layouts.css").is_file():
-        parts.append((brand_dir / "layouts.css").read_text())
+    for extra in ("layouts.css", "custom.css"):   # custom.css: Handanpassungen, bleibt bei Neuimport erhalten
+        if (brand_dir / extra).is_file():
+            parts.append(inline_css_urls((brand_dir / extra).read_text(), brand_dir))
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text("\n".join(parts))
     print(f"{out} ({out.stat().st_size} Bytes, Brand '{meta['name']}' aus {brand_dir})")
