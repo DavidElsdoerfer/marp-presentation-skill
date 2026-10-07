@@ -3,7 +3,7 @@
 Claude-Code-/opencode-Skill für Marp-Präsentationen mit austauschbarer Brand (CI).
 
 **Ziele**
-- Mensch und Agent bearbeiten dasselbe Markdown-Deck parallel, Live-Vorschau im Browser (`marp -s`), keine Zusatzanwendung.
+- Mensch und Agent bearbeiten dasselbe Markdown-Deck parallel; Live-Vorschau im Browser (`marp -s`) lädt bei jeder Änderung nach, keine Zusatzanwendung. Bearbeitet wird in Dateien, nicht im Browser.
 - Jedes Deck ist ein selbstständiger Ordner (Theme, Assets, Config) und braucht keine kopierten Dateien von außen.
 - Sauberer PDF-Export und HTML-Export mit Presenter View.
 - Brands aus PPTX-Folienmastern importieren (Farben, Schriften, Logos, Layouts).
