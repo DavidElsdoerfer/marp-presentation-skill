@@ -56,7 +56,7 @@ Vorlage nachstellen (`tests/template_factory.py`), dann beheben. **Firmenvorlage
 
 ## Zurückgestellt
 
-- **Editierbarer PPTX-Export** (M6 in `ROADMAP.md`, Konzept in `docs/decisions/0011-pptx-export-optional.md`): bewusst niedrige Priorität. Marp muss zuerst sauber laufen.
+- **Editierbarer PPTX-Export** (M6 in `ROADMAP.md`, Konzept in `docs/decisions/0011-pptx-export-optional.md`, lauffähiger Prototyp und technisches Wissen in `docs/prototypes/pptx-export/`): bewusst niedrige Priorität. Marp muss zuerst sauber laufen.
 
 ## Nächste Schritte
 

@@ -30,3 +30,6 @@ Fett/Kursiv/Code/Links, Listenebenen, zwei Spalten, native Tabelle und Notizen f
 - Der Rückweg PPTX → Marp ist verlustbehaftet (`import-deck`); die PPTX ist ein Endpunkt: erst inhaltlich in Marp fertigstellen, dann exportieren und in PowerPoint finalisieren.
 - Ob erzeugte Dateien in PowerPoint ohne Reparaturmeldung öffnen, ist nur auf einem Rechner mit PowerPoint prüfbar.
 - Recherche: reveal.js und Marp/Slidev exportieren PPTX nicht editierbar (nur Bilder); Pandoc/Quarto wählen Layouts nach Inhalt, nicht pro Folie.
+
+## Technisches Wissen und Prototyp
+Lauffähiger Prototyp und die gesammelten technischen Erkenntnisse (Marp-Tokens, python-pptx-Fallstricke, Layout-Zuordnung, Vorlagenvorbereitung, Bild-Rückfall, Komponenten als Formen, Testplan): [`docs/prototypes/pptx-export/`](../prototypes/pptx-export/README.md).

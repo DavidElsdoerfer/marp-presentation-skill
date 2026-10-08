@@ -69,7 +69,7 @@ Anforderungen: [docs/requirements.md](docs/requirements.md) · Entscheidungen: [
 
 ## M6 — Optional: editierbarer PPTX-Export (niedrige Priorität)
 
-Entscheidung 2026-10-08: nicht wichtig; **Marp muss zuerst sauber laufen** (Test auf dem Firmenrechner). Konzept und Erkenntnisse: [docs/decisions/0011-pptx-export-optional.md](docs/decisions/0011-pptx-export-optional.md).
+Entscheidung 2026-10-08: nicht wichtig; **Marp muss zuerst sauber laufen** (Test auf dem Firmenrechner). Konzept und Erkenntnisse: [docs/decisions/0011-pptx-export-optional.md](docs/decisions/0011-pptx-export-optional.md); **lauffähiger Prototyp mit dem gesamten technischen Wissen:** [docs/prototypes/pptx-export/](docs/prototypes/pptx-export/README.md).
 
 - [ ] Stufe 1: `export pptx` aus dem Marp-Modell in die Layouts der Original-Vorlage (Platzhalter für Titel/Untertitel/Inhalt/Spalten, Notizen, native Tabellen, Bilder; Bild der Folie als Rückfall für Nicht-Abbildbares)
 - [ ] Brand: bereinigte Vorlage (`template.pptx`, ohne Folien/Kommentare/Vorschaubild/eingebettete Schriften), Zuordnung Klasse → Layout (Name mit Index als Rückfall, harter Abbruch bei fehlendem Layout), Zuordnung eigener Platzhalter (Autor, Datum, Organisationseinheit …) zu Frontmatter-Feldern
