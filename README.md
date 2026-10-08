@@ -63,7 +63,7 @@ Decks in einem Projektordner: `skill/scripts/marp-deck vscode <projektordner>`. 
 
 ```bash
 skill/scripts/marp-deck pack mein-titel                 # → mein-titel.deck (ZIP), ohne dist/ und ohne Original-Richtlinien
-skill/scripts/marp-deck unpack mein-titel.deck --dir ~/Vorträge
+skill/scripts/marp-deck unpack mein-titel.deck --dir ~/vortraege
 skill/scripts/marp-deck import-deck alter-vortrag.pptx --brand firma   # optional, braucht pptx2md
 ```
 

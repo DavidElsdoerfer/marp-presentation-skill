@@ -95,6 +95,70 @@ class Suggest(unittest.TestCase):
         res = self.sg("Neu")
         self.assertEqual(Path(res["dir"]), self.proj / "presentations")
 
+    def test_any_topic_not_tied_to_workshops(self):
+        base = self.proj / "docs" / "talks"
+        self.mkdeck("20260105-Kickoff", base); self.mkdeck("20260212-Roadmap", base)
+        res = self.sg("Quartalsbericht Vertrieb EMEA", "--date", "2026-04-17")
+        self.assertEqual(res["slug"], "20260417-Quartalsbericht-Vertrieb-EMEA")        # kompaktes Datum-Präfix übernommen
+        self.assertEqual(Path(res["dir"]), base)
+        res = self.sg("Sicherheitskonzept", "--date", "2026-04-17")                   # beliebiges Thema ohne Bezug zu Workshops
+        self.assertTrue(res["slug"].endswith("Sicherheitskonzept"))
+
+    def test_month_style_prefix(self):
+        base = self.proj / "slides"
+        self.mkdeck("2026-01-Kickoff", base); self.mkdeck("2026-02-Review", base)
+        self.assertEqual(self.sg("Neu Im April", "--date", "2026-04-17")["slug"], "2026-04-Neu-Im-April")
+
+    def test_no_existing_decks_plain_ascii_name_no_date(self):
+        res = self.sg("Überblick Sicherheit & Größe")
+        self.assertEqual(res["slug"], "ueberblick-sicherheit-groesse")
+        self.assertTrue(all(ord(c) < 128 for c in res["slug"]))
+
+    def test_non_ascii_title_without_ascii_equivalent(self):
+        res = self.sg("日本語")
+        self.assertEqual(res["slug"], "presentation")                                  # Fallback statt leerem Namen
+
+    def test_existing_folder_with_umlaut_is_kept_but_noted(self):
+        base = self.proj / "Präsentationen"; self.mkdeck("2026-10-05-Workshop", base)
+        res = self.sg("Neu", "--date", "2026-12-01")
+        self.assertEqual(Path(res["dir"]), base)                                        # bestehender Ordner wird nicht umbenannt
+        self.assertTrue(all(ord(c) < 128 for c in res["slug"]))
+        self.assertTrue(any("Nicht-ASCII" in r for r in res["reasons"]))
+
+
+class AsciiNames(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(); self.t = Path(self.tmp.name)
+        self.env = {"MARP_BRANDS_DIR": str(self.t / "store")}
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_new_writes_ascii_names_only(self):
+        r = cli("new", "Größe & Wirkung: Übersicht für Fußgänger", "--dir", self.t, env=self.env)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        deck = self.t / "groesse-wirkung-uebersicht-fuer-fussgaenger"
+        self.assertTrue(deck.is_dir())
+        for p in [deck, *deck.rglob("*")]:
+            self.assertTrue(all(ord(c) < 128 for c in p.relative_to(self.t).as_posix()), p)
+        self.assertIn("# Größe & Wirkung", (deck / f"{deck.name}.md").read_text())       # Inhalt behält Umlaute
+
+    def test_explicit_non_ascii_names_rejected_with_hint(self):
+        r = cli("new", "T", "--slug", "größe", "--dir", self.t, env=self.env)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("keine Umlaute", r.stderr); self.assertIn("Vorschlag: groesse", r.stderr)
+        self.assertFalse((self.t / "größe").exists())
+        pptx = ROOT / "tests" / "template_factory.py"
+        r = cli("brand", "import", pptx, "--name", "Prüfung", "--no-render", env=self.env)
+        self.assertNotEqual(r.returncode, 0); self.assertIn("keine Umlaute", r.stderr)
+
+    def test_pack_and_exports_are_ascii(self):
+        cli("new", "Prüfstand Übung", "--dir", self.t, env=self.env)
+        deck = self.t / "pruefstand-uebung"
+        r = cli("pack", deck, env=self.env)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertTrue((self.t / "pruefstand-uebung.deck").is_file())
+
 
 if __name__ == "__main__":
     unittest.main()

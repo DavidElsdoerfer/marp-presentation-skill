@@ -7,6 +7,18 @@ MARP_CLI_VERSION = "4.1.2"
 
 SKILL = Path(__file__).resolve().parent.parent
 
+# Ordner- und Dateinamen sind reines ASCII (weltweit tätige Konzerne, Dateisysteme, Werkzeuge): Umlaute werden umschrieben.
+TRANSLIT = {"ä": "ae", "ö": "oe", "ü": "ue", "Ä": "Ae", "Ö": "Oe", "Ü": "Ue", "ß": "ss", "ẞ": "SS", "æ": "ae", "Æ": "Ae",
+            "œ": "oe", "Œ": "Oe", "ø": "o", "Ø": "O", "å": "a", "Å": "A", "đ": "d", "Đ": "D", "ł": "l", "Ł": "L", "þ": "th", "Þ": "Th"}
+
+
+def ascii_fold(text):
+    """Umlaute und Akzente in ASCII umschreiben (ä→ae, ß→ss, é→e); nicht umschreibbare Zeichen (z. B. CJK) entfallen."""
+    import unicodedata
+    for src, dst in TRANSLIT.items():
+        text = text.replace(src, dst)
+    return unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
+
 CHROME_CANDIDATES = ["google-chrome", "google-chrome-stable", "chromium", "chromium-browser", "chrome"]
 
 

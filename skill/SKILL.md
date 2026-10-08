@@ -98,5 +98,5 @@ Wenn der Nutzer sein Firmen-CI nutzen will und eine `.pptx`/`.potx` (und ggf. De
 
 - Server und Exporte immer über `scripts/marp-deck` starten (setzt `--allow-local-files`, kein offenes stdin, Server nur auf `127.0.0.1`).
 - Nach dem Anlegen eines Decks keine Dateien aus `theme/` bearbeiten.
-- Umlaute in Dateinamen sind erlaubt; Slug entsteht aus dem Titel.
+- Ordner- und Dateinamen sind **reines ASCII**: der Name entsteht aus dem Titel (ä→ae, ö→oe, ü→ue, ß→ss, Akzente entfallen); `--slug` und `--name` mit Umlauten lehnt `marp-deck` ab und nennt einen Vorschlag. Titel und Inhalt der Folien dürfen Umlaute enthalten. Bestehende Ordner im Projekt werden nicht umbenannt.
 - `scripts/marp-deck brand import` überschreibt nie einen vorhandenen Brand-Ordner; bei Fehlern bleibt Vorhandenes unberührt.

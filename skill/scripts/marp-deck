@@ -28,7 +28,7 @@ from urllib.parse import quote, unquote
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from common import marp_cmd, marp_env, run_marp  # noqa: E402
+from common import ascii_fold, marp_cmd, marp_env, run_marp  # noqa: E402
 
 
 def _load_build_theme():
@@ -122,12 +122,16 @@ MONTHS = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August"
           "November", "Dezember"]
 
 
-SAFE_NAME = re.compile(r"^[\w][\w.\-]*$", re.UNICODE)
+SAFE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._\-]*$")
 
 
 def check_name(value, what):
+    """Namen für Ordner/Dateien: nur ASCII (Buchstaben, Ziffern, _ . -), keine Pfadbestandteile."""
     if not value or not SAFE_NAME.match(value) or ".." in value:
-        die(f"unzulässiger {what}: {value!r} (erlaubt: Buchstaben, Ziffern, _ . -)")
+        hint = ascii_fold(value or "")
+        hint = re.sub(r"[^A-Za-z0-9._\-]+", "-", hint).strip("-.")
+        die(f"unzulässiger {what}: {value!r} (erlaubt: ASCII-Buchstaben, Ziffern, _ . -; keine Umlaute)"
+            + (f"\n  Vorschlag: {hint}" if hint and hint != value else ""))
     return value
 
 
@@ -141,12 +145,12 @@ def yaml_text(text):
 
 
 def slugify(title, lower=True):
-    s = unicodedata.normalize("NFC", title).strip()
+    """Ordner-/Dateiname aus dem Titel: reines ASCII (ä→ae, ß→ss, é→e), Leerzeichen → -, Sonderzeichen entfallen."""
+    s = ascii_fold(title).strip()
     s = s.lower() if lower else s
     s = re.sub(r"\s+", "-", s)
-    s = re.sub(r"[^\w\-]", "", s, flags=re.UNICODE).replace("_", "-")
-    s = re.sub(r"-{2,}", "-", s).strip("-")
-    return s
+    s = re.sub(r"[^A-Za-z0-9\-_]", "", s).replace("_", "-")
+    return re.sub(r"-{2,}", "-", s).strip("-")
 
 
 def find_deck(arg=None):
@@ -234,7 +238,7 @@ def cmd_new(a):
         die("Titel angeben")
     slug = a.slug or slugify(title)
     if not slug:
-        die("aus dem Titel ließ sich kein Dateiname ableiten, --slug angeben")
+        die("aus dem Titel ließ sich kein ASCII-Dateiname ableiten, --slug angeben")
     check_name(slug, "Deck-Name")
     parent = Path(a.dir).expanduser() if a.dir else Path.cwd()
     deck = (parent / slug).resolve()
@@ -593,9 +597,13 @@ def _load(name):
 
 # ── suggest ────────────────────────────────────────────────────────────────
 
-DATE_PREFIX = re.compile(r"^(\d{4})-(\d{2})-(\d{2})[-_ ]")
-DECK_DIR_NAMES = ("presentations", "praesentationen", "präsentationen", "slides", "decks", "talks", "vortraege", "vorträge",
-                  "workshops", "folien")
+# Datum-Präfixe vorhandener Decks: (Name, Muster, Formatfunktion für das heutige Datum)
+DATE_STYLES = (("full", re.compile(r"^\d{4}-\d{2}-\d{2}[-_ ]"), lambda d: d.replace("-", "-") + "-"),
+               ("compact", re.compile(r"^\d{8}[-_ ]"), lambda d: d.replace("-", "") + "-"),
+               ("month", re.compile(r"^\d{4}-\d{2}[-_ ]"), lambda d: d[:7] + "-"))
+DATE_ANY = re.compile(r"^(\d{4}-\d{2}-\d{2}|\d{8}|\d{4}-\d{2})[-_ ]")
+DECK_DIR_NAMES = ("presentations", "presentation", "praesentationen", "praesentation", "präsentationen", "präsentation",
+                  "slides", "decks", "talks", "vortraege", "vorträge", "folien")
 
 
 def project_root(start):
@@ -633,21 +641,25 @@ def suggest(title, project=None, date=None):
             target_dir = root / "presentations"
             reasons.append("kein Präsentationsordner gefunden: neuer Ordner „presentations“ in der Projektwurzel (wird beim Anlegen erzeugt)")
 
-    # Namensschema aus vorhandenen Decks ableiten: Datumspräfix, Groß-/Kleinschreibung
+    # Namensschema aus vorhandenen Decks ableiten: Datumspräfix (voll/kompakt/Monat), Groß-/Kleinschreibung
     names = [d.name for d in decks if d.parent == target_dir] or [d.name for d in decks]
-    dated = [n for n in names if DATE_PREFIX.match(n)]
-    use_date = bool(dated) and len(dated) * 2 >= len(names)
-    keep_case = any(re.search(r"[A-ZÄÖÜ]", DATE_PREFIX.sub("", n)) for n in names)
+    style_count = {n: sum(1 for x in names if rx.match(x)) for n, rx, _ in DATE_STYLES}
+    style = max(style_count, key=lambda k: style_count[k]) if names else None
+    use_date = bool(style) and style_count[style] * 2 >= len(names)
+    keep_case = any(re.search(r"[A-Z]", DATE_ANY.sub("", n)) for n in names)
     today = date or time.strftime("%Y-%m-%d")
     if not re.match(r"^\d{4}-\d{2}-\d{2}$", today):
         die(f"--date: JJJJ-MM-TT erwartet, nicht {today!r}")
-    core = slugify(title, lower=not keep_case) or "praesentation"
-    slug = f"{today}-{core}" if use_date else core
+    core = slugify(title, lower=not keep_case) or "presentation"
+    prefix = next(fmt for n, _, fmt in DATE_STYLES if n == style)(today) if use_date else ""
+    slug = f"{prefix}{core}"
     if names:
-        reasons.append("Namensschema aus vorhandenen Decks: " + ("Datum-Präfix, " if use_date else "ohne Datum, ") +
+        reasons.append("Namensschema aus vorhandenen Decks: " + (f"Datum-Präfix ({style}), " if use_date else "ohne Datum, ") +
                        ("Großschreibung bleibt erhalten" if keep_case else "kleingeschrieben"))
     else:
-        reasons.append("kein Schema ableitbar: Titel in Kleinbuchstaben (mit --date und Präfix selbst festlegen, falls gewünscht)")
+        reasons.append("kein Schema ableitbar: Titel in Kleinbuchstaben ohne Datum")
+    if any(ord(ch) > 127 for ch in str(target_dir)):
+        reasons.append("Hinweis: der vorhandene Ablageordner enthält Nicht-ASCII-Zeichen (bleibt unverändert); neue Namen sind reines ASCII")
     base, n = slug, 2
     while (target_dir / slug).exists():
         slug = f"{base}-{n}"; n += 1
