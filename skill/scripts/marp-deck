@@ -144,13 +144,21 @@ def yaml_text(text):
     return json.dumps(" ".join(str(text).split()), ensure_ascii=False)
 
 
-def slugify(title, lower=True):
-    """Ordner-/Dateiname aus dem Titel: reines ASCII (ä→ae, ß→ss, é→e), Leerzeichen → -, Sonderzeichen entfallen."""
+SLUG_MAX = 60
+
+
+def slugify(title, lower=True, max_len=SLUG_MAX):
+    """Ordner-/Dateiname aus dem Titel: reines ASCII (ä→ae, ß→ss, é→e), Leerzeichen → -, Sonderzeichen entfallen,
+    höchstens max_len Zeichen (an einer Wortgrenze gekürzt)."""
     s = ascii_fold(title).strip()
     s = s.lower() if lower else s
     s = re.sub(r"\s+", "-", s)
     s = re.sub(r"[^A-Za-z0-9\-_]", "", s).replace("_", "-")
-    return re.sub(r"-{2,}", "-", s).strip("-")
+    s = re.sub(r"-{2,}", "-", s).strip("-")
+    if len(s) > max_len:
+        cut = s[:max_len]
+        s = (cut.rsplit("-", 1)[0] if "-" in cut and cut[max_len - 1:max_len] != "-" and s[max_len] != "-" else cut).strip("-")
+    return s
 
 
 def find_deck(arg=None):

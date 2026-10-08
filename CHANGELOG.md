@@ -48,6 +48,7 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionier
 - `tests/compare-themes.sh`
 
 ### Geändert
+- Namen aus Titeln höchstens 60 Zeichen (an Wortgrenze gekürzt); `SKILL.md` verlangt einen kurzen Themen-Titel statt des ganzen Nutzersatzes
 - **Ordner- und Dateinamen sind reines ASCII:** Titel werden umgeschrieben (ä→ae, ö→oe, ü→ue, ß→ss, Akzente entfallen); `--slug`/`--name` mit Nicht-ASCII-Zeichen werden mit Vorschlag abgelehnt; gleiche Umschrift für Layout-Klassen im Brand-Import
 - `suggest` erkennt Datum-Präfixe in drei Formen (JJJJ-MM-TT, JJJJMMTT, JJJJ-MM); neutralere Liste möglicher Präsentationsordner
 - `SKILL.md`: Ablauf an den Anwenderablauf angepasst (gebündelte Rückfragen inkl. Zielordner, Übergabe an VS Code als Standard, Export durch den Nutzer mit dem Plugin, Hinweis auf Unterschiede beim HTML-Export)
