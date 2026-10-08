@@ -67,6 +67,15 @@ Anforderungen: [docs/requirements.md](docs/requirements.md) · Entscheidungen: [
 - [x] `unpack` übernimmt Workspace-Dateien nie aus Archiven
 - [ ] Test der Erweiterung selbst auf dem Firmenrechner (hier ohne VS Code; `themeSet.add` und HTML-Allowlist mit marp-core geprüft)
 
+## M6 — Optional: editierbarer PPTX-Export (niedrige Priorität)
+
+Entscheidung 2026-10-08: nicht wichtig; **Marp muss zuerst sauber laufen** (Test auf dem Firmenrechner). Konzept und Erkenntnisse: [docs/decisions/0011-pptx-export-optional.md](docs/decisions/0011-pptx-export-optional.md).
+
+- [ ] Stufe 1: `export pptx` aus dem Marp-Modell in die Layouts der Original-Vorlage (Platzhalter für Titel/Untertitel/Inhalt/Spalten, Notizen, native Tabellen, Bilder; Bild der Folie als Rückfall für Nicht-Abbildbares)
+- [ ] Brand: bereinigte Vorlage (`template.pptx`, ohne Folien/Kommentare/Vorschaubild/eingebettete Schriften), Zuordnung Klasse → Layout (Name mit Index als Rückfall, harter Abbruch bei fehlendem Layout), Zuordnung eigener Platzhalter (Autor, Datum, Organisationseinheit …) zu Frontmatter-Feldern
+- [ ] Stufe 2: bekannte Komponenten (`box-*`, `flow-*`, `agenda-*`, Accordion …) als native Formen aus der Browser-Geometrie zeichnen
+- [ ] `python-pptx` als optionale Abhängigkeit (Hinweis zur Installation in eigener Umgebung), Test, ob eine erzeugte Datei in PowerPoint ohne Reparaturmeldung öffnet (nur auf dem Firmenrechner möglich)
+
 ## Zuordnung Anforderung → Meilenstein
 
 | Anforderung | Meilenstein |

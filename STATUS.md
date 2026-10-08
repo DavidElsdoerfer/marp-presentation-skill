@@ -54,6 +54,10 @@ Vorlage nachstellen (`tests/template_factory.py`), dann beheben. **Firmenvorlage
 - Layout-Treue: Textposition ±1–2 px, Zeilenumbrüche können abweichen; bei großer Schrift zeigt `brand compare` bis ~15 % (Glyphenkanten).
 - Diagramme, SmartArt, Animationen werden nicht übernommen.
 
+## Zurückgestellt
+
+- **Editierbarer PPTX-Export** (M6 in `ROADMAP.md`, Konzept in `docs/decisions/0011-pptx-export-optional.md`): bewusst niedrige Priorität. Marp muss zuerst sauber laufen.
+
 ## Nächste Schritte
 
 Siehe `ROADMAP.md`. Nächstes: Firmenvorlage testen (siehe oben), danach Release entscheiden.

@@ -5,6 +5,7 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionier
 ## [Unveröffentlicht]
 
 ### Hinzugefügt
+- Roadmap M6 und Entscheidung 0011: editierbarer PPTX-Export als optionales Feature (zurückgestellt, Konzept am Prototyp geprüft)
 - `marp-deck suggest`: schlägt Zielordner und Namen für ein neues Deck vor (vorhandene Decks, Präsentationsordner, Namensschema, Datum-Präfix; schreibt nichts)
 - `marp-deck new` (auch `import-deck`, `brand preview`) trägt neue Decks automatisch in die Projekt-Einstellungen ein, wenn dort schon Marp-Themes registriert sind
 - Integration mit Marp for VS Code: jedes Deck bringt `.vscode/settings.json` mit; `marp-deck vscode` trägt Themes mehrerer Decks in Projekt-Einstellungen ein (`docs/vscode.md`, Entscheidung 0010, `tests/test_vscode.py`)
