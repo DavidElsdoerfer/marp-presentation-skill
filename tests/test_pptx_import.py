@@ -349,6 +349,10 @@ class Import(Base):
         self.assertEqual(bi.rotation_css({"xfrm": {"rot": 0.0}}), [])
         self.assertNotIn("-", re.search(r"padding: ([^;]*);", (out / "layouts.css").read_text()).group(1).split()[0])
 
+    def test_layout_class_names_ascii_and_consistent(self):
+        self.assertEqual(bi.slugify("Übersicht Größe"), "uebersicht-groesse")
+        self.assertEqual(bi.slugify("Café Zürich"), "cafe-zuerich")
+
     def test_preview_markdown(self):
         out, _ = self.run_import("pv")
         meta = bp.load_meta(out)

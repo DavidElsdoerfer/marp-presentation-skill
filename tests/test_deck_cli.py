@@ -28,7 +28,7 @@ def deck_cli(*args, cwd=None, env=None):
 
 class Slug(unittest.TestCase):
     def test_slugify(self):
-        self.assertEqual(md.slugify("Größe & Wirkung: KI im Mittelstand!"), "größe-wirkung-ki-im-mittelstand")
+        self.assertEqual(md.slugify("Größe & Wirkung: KI im Mittelstand!"), "groesse-wirkung-ki-im-mittelstand")
         self.assertEqual(md.slugify("  Linux   vs  Windows "), "linux-vs-windows")
         self.assertEqual(md.slugify("a_b--c"), "a-b-c")
         self.assertEqual(md.slugify("!!!"), "")

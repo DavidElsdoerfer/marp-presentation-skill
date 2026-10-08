@@ -17,6 +17,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import pptx_extract as px  # noqa: E402
+from common import ascii_fold  # noqa: E402
 import pptx_showcase as sc  # noqa: E402
 
 SLIDE_W, SLIDE_H = 1280, 720
@@ -36,7 +37,7 @@ def natural_sorted(paths):
 
 
 def slugify(name):
-    s = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode().lower()
+    s = ascii_fold(name).lower()
     return re.sub(r"[^a-z0-9]+", "-", s).strip("-") or "layout"
 
 

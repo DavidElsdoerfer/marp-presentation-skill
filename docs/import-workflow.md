@@ -127,7 +127,7 @@ ordnest du danach zu.
 
 ```bash
 marp-deck pack mein-vortrag            # → mein-vortrag.deck (ZIP)
-marp-deck unpack mein-vortrag.deck --dir ~/Vorträge
+marp-deck unpack mein-vortrag.deck --dir ~/vortraege
 ```
 
 Ein `.deck` aus fremder Quelle gilt als nicht vertrauenswürdig: `unpack` übernimmt `marp.config.mjs` nie aus dem Archiv (ausführbarer Code), sondern schreibt die Standardfassung neu, und verwirft `.marp-deck/`, `.git/`, `dist/`, `node_modules/`. Ein Deck rendert rohes HTML und lokale Dateien; fremde Decks vor dem Export ansehen.

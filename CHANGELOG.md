@@ -48,6 +48,8 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionier
 - `tests/compare-themes.sh`
 
 ### Geändert
+- **Ordner- und Dateinamen sind reines ASCII:** Titel werden umgeschrieben (ä→ae, ö→oe, ü→ue, ß→ss, Akzente entfallen); `--slug`/`--name` mit Nicht-ASCII-Zeichen werden mit Vorschlag abgelehnt; gleiche Umschrift für Layout-Klassen im Brand-Import
+- `suggest` erkennt Datum-Präfixe in drei Formen (JJJJ-MM-TT, JJJJMMTT, JJJJ-MM); neutralere Liste möglicher Präsentationsordner
 - `SKILL.md`: Ablauf an den Anwenderablauf angepasst (gebündelte Rückfragen inkl. Zielordner, Übergabe an VS Code als Standard, Export durch den Nutzer mit dem Plugin, Hinweis auf Unterschiede beim HTML-Export)
 - `unpack` übernimmt `.vscode/settings.json` nie aus Archiven (Standardvorlage statt Archivinhalt) und verwirft weitere `.vscode/*`-Dateien
 - **Sicherheit (Review):** `unpack` übernimmt `marp.config.mjs` nie aus dem Archiv; `serve`/`export` verweigern abweichende Configs;
