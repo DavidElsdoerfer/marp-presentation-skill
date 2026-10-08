@@ -48,6 +48,7 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionier
 - `tests/compare-themes.sh`
 
 ### Geändert
+- `SKILL.md`: Ablageort wird immer bestätigt (Vorschlag als Voreinstellung, Agent wartet die Antwort ab, vom Nutzer genannter Ort hat Vorrang)
 - Namen aus Titeln höchstens 60 Zeichen (an Wortgrenze gekürzt); `SKILL.md` verlangt einen kurzen Themen-Titel statt des ganzen Nutzersatzes
 - **Ordner- und Dateinamen sind reines ASCII:** Titel werden umgeschrieben (ä→ae, ö→oe, ü→ue, ß→ss, Akzente entfallen); `--slug`/`--name` mit Nicht-ASCII-Zeichen werden mit Vorschlag abgelehnt; gleiche Umschrift für Layout-Klassen im Brand-Import
 - `suggest` erkennt Datum-Präfixe in drei Formen (JJJJ-MM-TT, JJJJMMTT, JJJJ-MM); neutralere Liste möglicher Präsentationsordner
