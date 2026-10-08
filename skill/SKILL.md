@@ -51,7 +51,7 @@ Regeln für gute Folien:
 ## VS Code (Marp for VS Code)
 
 Der Nutzer kann Decks auch in VS Code mit der Erweiterung „Marp for VS Code“ ansehen. Jedes Deck bringt dafür `.vscode/settings.json` mit (Theme-Pfad, `markdown.marp.html: "all"`): Deck-Ordner öffnen, Workspace vertrauen, fertig — keine CSS pro Projekt anlegen.
-Liegen Decks in einem größeren Projektordner, `scripts/marp-deck vscode <projektordner>` ausführen (`--dry-run` zeigt nur an): trägt alle Themes in die Projekt-Einstellungen ein, meldet gleichnamige Themes mit unterschiedlichem Inhalt (dann `brand sync` in den Decks) und schreibt keine Datei mit Kommentaren um. Details: `docs/vscode.md`. Ältere Decks ohne `.vscode/`: denselben Befehl mit dem Deck-Ordner ausführen.
+Liegen Decks in einem größeren Projektordner (Workspace = Projekt), einmalig `scripts/marp-deck vscode <projektordner>` ausführen (`--dry-run` zeigt nur an); danach trägt `new` jedes weitere Deck darunter automatisch ein: trägt alle Themes in die Projekt-Einstellungen ein, meldet gleichnamige Themes mit unterschiedlichem Inhalt (dann `brand sync` in den Decks) und schreibt keine Datei mit Kommentaren um. Details: `docs/vscode.md`. Ältere Decks ohne `.vscode/`: denselben Befehl mit dem Deck-Ordner ausführen.
 
 ## Bestehende Präsentation übernehmen, Deck weitergeben
 

@@ -23,8 +23,10 @@ pro Projekt anzulegen, zu benennen und der Erweiterung beizubringen.
    ```
    Das Theme liegt im Deck (`theme/theme.css`), der Pfad ist relativ zum Deck. Deck-Ordner öffnen, dem Workspace vertrauen: Vorschau und Export laufen.
    Die Datei ist Teil des Decks und reist im `.deck`-Archiv mit.
-2. **Decks in einem größeren Projekt:** Ist nicht das Deck, sondern ein Projektordner der Workspace, greifen die Einstellungen im Deck nicht.
-   `marp-deck vscode [PROJEKT]` findet alle Decks darunter (Tiefe 4, ohne `dist/`, `node_modules/`, `.git/`) und trägt ihre Themes in
+2. **Decks in einem größeren Projekt** (z. B. `Projekt/Präsentationen/2026-10-05-Workshop/`): Ist nicht das Deck, sondern der Projektordner der Workspace,
+   greifen die Einstellungen im Deck nicht. **Einmalig** `marp-deck vscode <projekt>` ausführen; danach trägt `marp-deck new` (auch `import-deck`, `brand preview`) jedes neue Deck
+   darunter **automatisch** ein (Bedingung: der nächste Ordner oberhalb, dessen `.vscode/settings.json` schon Marp-Themes listet; bei Kommentaren in der Datei nur ein Hinweis).
+   Ohne frühere Registrierung legt `new` nie Dateien im Projekt an, es gibt nur einen Hinweis. `marp-deck vscode [PROJEKT]` findet alle Decks darunter (Tiefe 4, ohne `dist/`, `node_modules/`, `.git/`) und trägt ihre Themes in
    `<projekt>/.vscode/settings.json` ein:
    - nur ergänzen, nichts löschen (tote Einträge werden gemeldet); Nutzerwerte wie `pdf.outlines` bleiben, `markdown.marp.html` wird auf `"all"` gesetzt (nötig)
    - Sicherung `settings.json.bak-<zeit>` bei jeder Änderung, `--dry-run` zeigt nur an
