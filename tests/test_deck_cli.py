@@ -33,6 +33,14 @@ class Slug(unittest.TestCase):
         self.assertEqual(md.slugify("a_b--c"), "a-b-c")
         self.assertEqual(md.slugify("!!!"), "")
 
+    def test_slug_length_cut_at_word_boundary(self):
+        long = md.slugify("Mach mir eine Übersicht zur Größe der Lieferkette in Europa und Asien für das Management")
+        self.assertLessEqual(len(long), md.SLUG_MAX)
+        self.assertTrue(long.startswith("mach-mir-eine-uebersicht-zur-groesse"))
+        self.assertFalse(long.endswith("-"))
+        self.assertEqual(len(md.slugify("x" * 100)), md.SLUG_MAX)
+        self.assertEqual(md.slugify("Kurz"), "kurz")
+
 
 class InlineAssets(unittest.TestCase):
     def setUp(self):
