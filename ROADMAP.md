@@ -56,9 +56,16 @@ Anforderungen: [docs/requirements.md](docs/requirements.md) · Entscheidungen: [
 - [x] `pack`/`unpack` (`.deck`)
 - [x] Optionaler Adapter `import-deck` über `pptx2md --marp`
 - [x] `SKILL.md` vollständig
-- [ ] globalen Command `/presentation` ablösen (liegt außerhalb des Repos, Entscheidung des Autors)
-- [ ] Migration S6 (Entscheidung offen: ein Deck pro Session, geteilte Assets)
-- [ ] Release v0.1.0 (nach Test mit echter PowerPoint-Firmenvorlage)
+- [x] globalen Command `/presentation` entfernt (2026-10-08)
+- [x] Migration S6 entfällt (Entscheidung 2026-10-08: ignorieren, bei Bedarf neu aufbauen)
+- [ ] Release v0.1.0 (offen, nach Test mit echter PowerPoint-Firmenvorlage)
+
+## M5 — VS-Code-Integration (Marp for VS Code)
+
+- [x] Deck bringt `.vscode/settings.json` mit (Theme-Pfad, `html: all`, PDF-Optionen)
+- [x] `marp-deck vscode`: Themes mehrerer Decks in Projekt-Einstellungen, Konfliktwarnung, Kommentare bleiben unangetastet
+- [x] `unpack` übernimmt Workspace-Dateien nie aus Archiven
+- [ ] Test der Erweiterung selbst auf dem Firmenrechner (hier ohne VS Code; `themeSet.add` und HTML-Allowlist mit marp-core geprüft)
 
 ## Zuordnung Anforderung → Meilenstein
 

@@ -1,19 +1,17 @@
-# Offene Fragen an den Autor
+# Entscheidungen und offene Punkte
 
-Diese Punkte brauchen eine Entscheidung und werden nicht automatisch erledigt.
+Aktueller Stand und Ablauf für den Firmenrechner: [../STATUS.md](../STATUS.md).
 
-## Lizenz
-Erledigt: MIT (2026-10-08), siehe `LICENSE`.
+## Entschieden (2026-10-08)
+- **Lizenz:** MIT.
+- **Spuren im öffentlichen Verlauf** (frühes autarkit-Logo und -Farben, Firmenname in einem Kommentar, Projektbezüge in Kommentaren,
+  Git-Adresse): so lassen, kein History-Rewrite. Aus dem aktuellen Stand sind sie entfernt.
+- **S6-Schulungsreihe:** wird ignoriert; bei Bedarf mit dem Skill neu aufbauen.
+- **Alter Command `/presentation`:** entfernt.
+- **Release v0.1.0:** offen.
 
-## autarkit-Brand im Git-Verlauf
-Der erste Commit enthält `skill/brands/autarkit/` (Logo-SVG und Farb-Tokens). Aus dem aktuellen Stand ist es entfernt, im Verlauf bleibt es sichtbar (auch in Klonen und Forks). Es sind keine Zugangsdaten oder Kundendaten, nur das Marken-Logo. Entfernen aus dem Verlauf ginge nur per History-Rewrite und Force-Push; das ist bei einem öffentlichen Repo nur begrenzt wirksam (Caches, Forks). Entscheidung: so lassen oder umschreiben.
-
-## Weitere Spuren im öffentlichen Verlauf (bitte prüfen)
-Der Verlauf (Commits `c73920f` bis `5460744`) enthält noch:
-- in `skill/base/layouts.css` den Kommentar „analog AUMOVIO-Pattern“ (ein Firmenname; falls das dein Arbeitgeber ist, ggf. unerwünscht),
-- in `skill/base/components.css` Verweise auf `wiki/assets/themes/projekt.css (S6-CLI-Agent-Frameworks-Schulungsmaterial)`, auf „autarkit-Palette“ und auf Folien einer nicht benannten PPTX-Vorlage („Folie 7/8/9/10“, Layoutnamen).
-
-Aus dem aktuellen Stand sind diese Kommentare entfernt (Commit „Kommentare neutralisiert“), im Verlauf bleiben sie sichtbar. Entscheidung wie beim autarkit-Brand: so lassen oder Verlauf neu schreiben (Force-Push; bei öffentlichem Repo nur begrenzt wirksam, Klone/Forks/Caches bleiben).
-
-## Git-Identität
-Auf dem Rechner ist keine globale Git-Identität gesetzt; im Repo ist lokal `David Elsdoerfer <david.elsdoerfer@gmail.com>` eingetragen. Die Adresse steht damit in jedem öffentlichen Commit.
+## Offen
+- Test mit einer echten, in PowerPoint erstellten Firmenvorlage (durch den Autor auf dem Firmenrechner) und PowerPoint-PDF-Export leerer Platzhalter.
+- Release v0.1.0 nach diesem Test.
+- Copilot CLI: Skill-Pfad nie ausprobiert.
+- Git-Identität: im Repo lokal `David Elsdoerfer <david.elsdoerfer@gmail.com>`; global nicht gesetzt.
