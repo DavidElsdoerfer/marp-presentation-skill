@@ -47,6 +47,7 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionier
 - `tests/compare-themes.sh`
 
 ### Geändert
+- `SKILL.md`: Ablauf an den Anwenderablauf angepasst (gebündelte Rückfragen inkl. Zielordner, Übergabe an VS Code als Standard, Export durch den Nutzer mit dem Plugin, Hinweis auf Unterschiede beim HTML-Export)
 - `unpack` übernimmt `.vscode/settings.json` nie aus Archiven (Standardvorlage statt Archivinhalt) und verwirft weitere `.vscode/*`-Dateien
 - **Sicherheit (Review):** `unpack` übernimmt `marp.config.mjs` nie aus dem Archiv; `serve`/`export` verweigern abweichende Configs;
   Strings aus der PPTX werden bereinigt; Brand-CSS ohne `@import`/externe URLs; `serve.json` strikt validiert; Symlinks im Brand nicht gefolgt;
