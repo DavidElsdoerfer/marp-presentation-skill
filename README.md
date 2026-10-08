@@ -53,6 +53,11 @@ skill/scripts/marp-deck serve mein-titel --stop
 
 In einem Agent (Claude Code, opencode, Copilot CLI) genügt: „Mach mir eine Präsentation zu …“ — der Agent liest `skill/SKILL.md`.
 
+## Marp for VS Code
+
+Deck-Ordner in VS Code öffnen (Workspace vertrauen): Vorschau mit Theme und Komponenten läuft ohne Einrichtung, weil jedes Deck seine `.vscode/settings.json` mitbringt.
+Decks in einem Projektordner: `skill/scripts/marp-deck vscode <projektordner>`. Siehe [docs/vscode.md](docs/vscode.md).
+
 ## Decks weitergeben und übernehmen
 
 ```bash

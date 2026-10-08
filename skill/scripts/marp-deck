@@ -5,6 +5,7 @@
   marp-deck serve [DECK] [--port N] [--stop]
   marp-deck export pdf|html|pptx [DECK] [-o DATEI]
   marp-deck import-deck DATEI.pptx [--brand NAME] [--title T] [--dir ORDNER] [--tool PFAD]   (optional, braucht pptx2md)
+  marp-deck vscode [PROJEKT] [--dry-run]       (Marp for VS Code: Themes und HTML-Einstellung eintragen)
   marp-deck pack [DECK] [-o DATEI.deck] [--force]
   marp-deck unpack DATEI.deck [--dir ORDNER]
   marp-deck brand list
@@ -50,6 +51,13 @@ export default {
 """
 
 DECK_GITIGNORE = "dist/\n.marp-deck/\n"
+
+# Einstellungen für die VS-Code-Erweiterung "Marp for VS Code" (Pfade gelten relativ zum geöffneten Ordner).
+# html "all" ist nötig: sonst zeigt die Vorschau unsere <div>-Komponenten als Text.
+VSCODE_THEMES_KEY, VSCODE_HTML_KEY = "markdown.marp.themes", "markdown.marp.html"
+VSCODE_DEFAULTS = {"markdown.marp.pdf.noteAnnotations": True, "markdown.marp.pdf.outlines": "both"}
+VSCODE_SETTINGS = json.dumps({VSCODE_THEMES_KEY: ["theme/theme.css"], VSCODE_HTML_KEY: "all", **VSCODE_DEFAULTS},
+                             indent=4, ensure_ascii=False) + "\n"
 
 # Nicht in den Brand-Snapshot eines Decks kopieren (vertrauliche Originale, nur für den Brand-Vergleich nötig)
 SNAPSHOT_EXCLUDE = ("guidelines", "reference")
@@ -242,6 +250,8 @@ def cmd_new(a):
         now = time.localtime()
         (deck / "marp.config.mjs").write_text(CONFIG)
         (deck / ".gitignore").write_text(DECK_GITIGNORE)
+        (deck / ".vscode").mkdir()
+        (deck / ".vscode" / "settings.json").write_text(VSCODE_SETTINGS)
         (deck / f"{slug}.md").write_text(DECK_TEMPLATE.format(
             theme=theme, size_line=size_line, title=yaml_text(title), title_md=" ".join(title.split()),
             date=f"{MONTHS[now.tm_mon - 1]} {now.tm_year}"))
@@ -251,7 +261,7 @@ def cmd_new(a):
     print(f"Deck angelegt: {deck}")
     print(f"  Quelle:  {deck / (slug + '.md')}")
     print(f"  Brand:   {theme} (aus {src}; Snapshot in theme/brand/)")
-    print(f"  Vorschau: {Path(sys.argv[0]).name} serve {deck}")
+    print(f"  Vorschau: {Path(sys.argv[0]).name} serve {deck}   oder: Ordner in VS Code öffnen (Marp for VS Code, ohne Einrichtung)")
 
 
 # ── serve ──────────────────────────────────────────────────────────────────
@@ -525,6 +535,8 @@ def cmd_unpack(a):
             rel_parts = i.filename[len(name) + 1:].split("/")
             if rel_parts[0] in PACK_SKIP_DIRS:      # Zustand/Build/Git gehören nicht in ein weitergegebenes Deck
                 continue
+            if rel_parts[0] == ".vscode" and rel_parts != [".vscode", "settings.json"]:   # tasks.json, launch.json … sind ausführbar
+                continue
             if (i.external_attr >> 16) & 0o170000 == 0o120000:
                 die(f"Symlink im Archiv abgelehnt: {i.filename!r}")
             try:
@@ -543,6 +555,9 @@ def cmd_unpack(a):
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 if i.filename == f"{name}/marp.config.mjs":     # nie fremden Code übernehmen: Standard-Config statt Archivinhalt
                     dest.write_text(CONFIG)
+                    continue
+                if i.filename == f"{name}/.vscode/settings.json":   # Workspace-Einstellungen können Programme starten: Standard statt Archivinhalt
+                    dest.write_text(VSCODE_SETTINGS)
                     continue
                 with z.open(i) as fin, open(dest, "wb") as fout:
                     while chunk := fin.read(1 << 20):
@@ -570,6 +585,131 @@ def _load(name):
     sys.modules[name] = mod
     spec.loader.exec_module(mod)
     return mod
+
+
+# ── vscode ─────────────────────────────────────────────────────────────────
+
+def parse_jsonc(text):
+    """settings.json ist JSON mit Kommentaren und nachgestellten Kommas. -> (Objekt, enthält_Kommentare)"""
+    out, i, n, in_str, esc, had_comment = [], 0, len(text), False, False, False
+    while i < n:
+        c = text[i]
+        if in_str:
+            out.append(c)
+            if esc:
+                esc = False
+            elif c == "\\":
+                esc = True
+            elif c == '"':
+                in_str = False
+        elif c == '"':
+            in_str = True; out.append(c)
+        elif text.startswith("//", i):
+            had_comment = True
+            while i < n and text[i] != "\n":
+                i += 1
+            continue
+        elif text.startswith("/*", i):
+            had_comment = True
+            end = text.find("*/", i + 2)
+            i = n if end == -1 else end + 2
+            continue
+        elif c == ",":                       # nachgestelltes Komma (nur außerhalb von Strings) auslassen
+            j = i + 1
+            while j < n and text[j] in " \t\r\n":
+                j += 1
+            if j < n and text[j] in "}]":
+                i += 1
+                continue
+            out.append(c)
+        else:
+            out.append(c)
+        i += 1
+    return json.loads("".join(out)), had_comment
+
+
+def find_decks(root, max_depth=4):
+    skip = {"node_modules", ".git", "dist", ".marp-deck", ".vscode", "theme"}
+    root = Path(root)
+    for dirpath, dirnames, files in os.walk(root):
+        depth = len(Path(dirpath).relative_to(root).parts)
+        dirnames[:] = sorted(d for d in dirnames if d not in skip) if depth < max_depth else []
+        if "marp.config.mjs" in files and (Path(dirpath) / "theme" / "theme.css").is_file():
+            yield Path(dirpath)
+
+
+def theme_name(css_path):
+    mt = re.search(r"/\*\s*@theme\s+(\S+)\s*\*/", Path(css_path).read_text(errors="replace")[:4000])
+    return mt.group(1) if mt else None
+
+
+def cmd_vscode(a):
+    project = Path(a.project).expanduser().resolve() if a.project else Path.cwd().resolve()
+    if not project.is_dir():
+        die(f"{project} ist kein Ordner")
+    decks = list(find_decks(project))
+    if not decks:
+        die(f"keine Decks unter {project} gefunden (erwartet: marp.config.mjs und theme/theme.css)")
+    wanted = [d.joinpath("theme", "theme.css").relative_to(project).as_posix() for d in decks]
+    sfile = project / ".vscode" / "settings.json"
+    settings, notes = {}, []
+    if sfile.is_file():
+        try:
+            settings, had_comments = parse_jsonc(sfile.read_text())
+        except ValueError as e:
+            die(f"{sfile} ist kein lesbares JSON ({e}) — nichts verändert")
+        if not isinstance(settings, dict):
+            die(f"{sfile}: Wurzel ist kein Objekt — nichts verändert")
+        if had_comments:   # Kommentare gingen beim Zurückschreiben verloren: nicht anfassen, Zeilen zum Einfügen ausgeben
+            snippet = json.dumps({VSCODE_THEMES_KEY: wanted, VSCODE_HTML_KEY: "all", **VSCODE_DEFAULTS}, indent=4, ensure_ascii=False)
+            print(f"{sfile} enthält Kommentare; ich schreibe sie nicht um. Diese Einträge von Hand ergänzen:\n{snippet}")
+            sys.exit(3)
+    current = settings.get(VSCODE_THEMES_KEY, [])
+    if not isinstance(current, list):
+        die(f"{sfile}: {VSCODE_THEMES_KEY} ist keine Liste — nichts verändert")
+    norm = lambda p: p[2:] if isinstance(p, str) and p.startswith("./") else p
+    have = {norm(p) for p in current if isinstance(p, str)}
+    added = [w for w in wanted if w not in have]
+    themes = current + added
+    # fehlende Dateien und gleichnamige Themes mit unterschiedlichem Inhalt melden
+    import hashlib
+    seen = {}
+    for p in themes:
+        if not isinstance(p, str) or re.match(r"^https?:", p):
+            continue
+        f = project / norm(p)
+        if not f.is_file():
+            notes.append(f"Eintrag verweist auf fehlende Datei: {p}")
+            continue
+        nm = theme_name(f)
+        digest = hashlib.sha256(f.read_bytes()).hexdigest()[:8]
+        if nm in seen and seen[nm][1] != digest:
+            notes.append(f"Theme '{nm}' kommt in {seen[nm][0]} und {p} mit unterschiedlichem Inhalt vor — die Erweiterung nimmt still den "
+                         f"letzten. Abhilfe: in den Decks `marp-deck brand sync` ausführen.")
+        seen.setdefault(nm, (p, digest))
+    new = dict(settings)
+    new[VSCODE_THEMES_KEY] = themes
+    html_changed = new.get(VSCODE_HTML_KEY) != "all"
+    new[VSCODE_HTML_KEY] = "all"
+    for k, v in VSCODE_DEFAULTS.items():
+        new.setdefault(k, v)
+    changed = new != settings
+    print(f"{len(decks)} Deck(s) gefunden:")
+    for d in decks:
+        print(f"  {d.relative_to(project) if d != project else '.'}  (Theme '{theme_name(d / 'theme' / 'theme.css')}')")
+    if not changed:
+        print(f"{sfile}: bereits aktuell.")
+    elif a.dry_run:
+        print(f"[Probelauf] würde {sfile} ändern: {len(added)} Theme(s) ergänzen" + (", markdown.marp.html auf \"all\" setzen" if html_changed else ""))
+    else:
+        sfile.parent.mkdir(exist_ok=True)
+        if sfile.is_file():
+            shutil.copy2(sfile, sfile.with_name(f"settings.json.bak-{time.strftime('%Y%m%d-%H%M%S')}"))
+        sfile.write_text(json.dumps(new, indent=4, ensure_ascii=False) + "\n")
+        print(f"{sfile} aktualisiert: {len(added)} Theme(s) ergänzt" + (", markdown.marp.html auf \"all\" gesetzt (nötig für die Komponenten)" if html_changed else "") + ".")
+    for n in notes:
+        print(f"WARNUNG: {n}", file=sys.stderr)
+    print(f"Hinweis: {project} als Ordner in VS Code öffnen und dem Workspace vertrauen (sonst ignoriert die Erweiterung Themes und HTML).")
 
 
 def cmd_import_deck(a):
@@ -738,6 +878,11 @@ def main():
     b.add_argument("--map", action="append", default=[]); b.add_argument("--no-render", action="store_true")
     b.add_argument("--replace", action="store_true", help="vorhandenen Brand ersetzen (alter wird gesichert, custom.css/GUIDELINES.md/fonts bleiben)")
     b.set_defaults(fn=lambda a: (setattr(a, "deck", a.target), cmd_brand(a)))
+
+    vs = sp.add_parser("vscode", help="Marp for VS Code: Themes und HTML-Einstellung eintragen")
+    vs.add_argument("project", nargs="?")
+    vs.add_argument("--dry-run", action="store_true")
+    vs.set_defaults(fn=cmd_vscode)
 
     ii = sp.add_parser("import-deck", help="bestehende PPTX-Präsentation als Marp-Deck übernehmen (braucht pptx2md)")
     ii.add_argument("file")

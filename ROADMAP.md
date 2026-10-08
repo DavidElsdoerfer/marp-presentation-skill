@@ -62,7 +62,10 @@ Anforderungen: [docs/requirements.md](docs/requirements.md) · Entscheidungen: [
 
 ## M5 — VS-Code-Integration (Marp for VS Code)
 
-- [ ] siehe `docs/vscode.md`
+- [x] Deck bringt `.vscode/settings.json` mit (Theme-Pfad, `html: all`, PDF-Optionen)
+- [x] `marp-deck vscode`: Themes mehrerer Decks in Projekt-Einstellungen, Konfliktwarnung, Kommentare bleiben unangetastet
+- [x] `unpack` übernimmt Workspace-Dateien nie aus Archiven
+- [ ] Test der Erweiterung selbst auf dem Firmenrechner (hier ohne VS Code; `themeSet.add` und HTML-Allowlist mit marp-core geprüft)
 
 ## Zuordnung Anforderung → Meilenstein
 

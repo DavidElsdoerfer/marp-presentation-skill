@@ -12,6 +12,7 @@ Regeln für Änderungen: `AGENTS.md`. Ziele: `docs/requirements.md`. Entscheidun
 | CI-Import aus PowerPoint (`brand import/showcase/preview/compare`) | fertig, **nur mit synthetischer und LibreOffice-Vorlagen geprüft** | Tests, Vergleich Original ↔ Marp (≈ 5 % = Textglättung) |
 | `.deck`-Container (`pack`/`unpack`) | fertig | Tests inkl. manipulierter Archive |
 | Übernahme alter PPTX-Decks (`import-deck`, optional über `pptx2md`) | fertig | Tests mit echtem Werkzeug |
+| Marp for VS Code (`.vscode/settings.json` im Deck, `marp-deck vscode`) | fertig, **Erweiterung selbst nicht ausprobiert** | `tests/test_vscode.py` (Plugin-Verhalten mit marp-core nachgestellt) |
 | Härtung nach unabhängigem Review | fertig | `tests/test_review_findings.py`, `docs/decisions/0009-review-haertung.md` |
 
 Tests: `python3 -m unittest discover tests` (Render-/Browser-Tests brauchen Chrome und Node, sonst übersprungen).
@@ -22,7 +23,8 @@ Tests: `python3 -m unittest discover tests` (Render-/Browser-Tests brauchen Chro
    und Layoutvielfalt, mehrere Folienmaster (Tokens/Logo kommen nur vom ersten), Aufzählungszeichen, Absatzabstände, Datumsfeld.
 2. **PDF-Export leerer Platzhalter in PowerPoint.** Mit LibreOffice bestätigt, mit PowerPoint selbst nicht. Davon hängt der Weg
    „nur PowerPoint, kein LibreOffice“ ab (`docs/import-workflow.md`, Pfad B).
-3. **Copilot CLI.** `install.sh` verlinkt nach `~/.agents/skills` (laut Drittquelle der Pfad für Copilot CLI); nie mit Copilot CLI ausprobiert.
+3. **Marp for VS Code selbst.** Hier ohne VS Code: geprüft sind Einstellungen, Aggregation und das Plugin-Verhalten mit `marp-core`. Auf dem Firmenrechner testen: Deck-Ordner öffnen → Vorschau zeigt Theme und Komponenten? (`docs/vscode.md`)
+4. **Copilot CLI.** `install.sh` verlinkt nach `~/.agents/skills` (laut Drittquelle der Pfad für Copilot CLI); nie mit Copilot CLI ausprobiert.
 
 ### So testest du auf dem Firmenrechner (Ablauf)
 
@@ -54,4 +56,4 @@ Vorlage nachstellen (`tests/template_factory.py`), dann beheben. **Firmenvorlage
 
 ## Nächste Schritte
 
-Siehe `ROADMAP.md`. Aktuell in Arbeit: Integration mit der VS-Code-Erweiterung „Marp for VS Code“ (`docs/vscode.md`).
+Siehe `ROADMAP.md`. Nächstes: Firmenvorlage testen (siehe oben), danach Release entscheiden.

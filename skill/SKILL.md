@@ -48,6 +48,11 @@ Regeln für gute Folien:
 - Keine erfundenen Zahlen, Zitate oder Quellen.
 - Nach größeren Änderungen die Folien ansehen (PNG-Vorschau: `export pdf` und Seiten prüfen) und Überläufe beheben.
 
+## VS Code (Marp for VS Code)
+
+Der Nutzer kann Decks auch in VS Code mit der Erweiterung „Marp for VS Code“ ansehen. Jedes Deck bringt dafür `.vscode/settings.json` mit (Theme-Pfad, `markdown.marp.html: "all"`): Deck-Ordner öffnen, Workspace vertrauen, fertig — keine CSS pro Projekt anlegen.
+Liegen Decks in einem größeren Projektordner, `scripts/marp-deck vscode <projektordner>` ausführen (`--dry-run` zeigt nur an): trägt alle Themes in die Projekt-Einstellungen ein, meldet gleichnamige Themes mit unterschiedlichem Inhalt (dann `brand sync` in den Decks) und schreibt keine Datei mit Kommentaren um. Details: `docs/vscode.md`. Ältere Decks ohne `.vscode/`: denselben Befehl mit dem Deck-Ordner ausführen.
+
 ## Bestehende Präsentation übernehmen, Deck weitergeben
 
 - **Altes PowerPoint-Deck als Marp-Deck:** `scripts/marp-deck import-deck <datei.pptx> --brand <name> [--tool <pfad/pptx2md>]` übernimmt Titel, Text, Listen, Tabellen, Bilder und Sprechernotizen (nicht das Layout). Braucht das optionale Werkzeug `pptx2md` (Installation in eigener Umgebung, Hinweis erscheint bei Fehlen). Danach Abschnitte (`section`), Spalten (`cols`) und Abschluss (`closing`) von Hand zuordnen und das Ergebnis ansehen.

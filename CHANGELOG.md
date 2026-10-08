@@ -5,6 +5,8 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionier
 ## [Unveröffentlicht]
 
 ### Hinzugefügt
+- Integration mit Marp for VS Code: jedes Deck bringt `.vscode/settings.json` mit; `marp-deck vscode` trägt Themes mehrerer Decks in Projekt-Einstellungen ein (`docs/vscode.md`, Entscheidung 0010, `tests/test_vscode.py`)
+- `STATUS.md` (Stand, ungeprüfte Bereiche, Ablauf für den Firmenrechner); Entscheidungen vom 2026-10-08 in `docs/open-questions.md`
 - MIT-Lizenz (`LICENSE`)
 - `brand import --replace` (Neuimport mit Sicherung, übernimmt `custom.css`, `GUIDELINES.md`, Schriften), `repair-config`, `--trust-config`
 - Sicherung von Handänderungen bei `brand sync` unter `.marp-deck/brand-backup-*`
@@ -44,6 +46,7 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionier
 - `tests/compare-themes.sh`
 
 ### Geändert
+- `unpack` übernimmt `.vscode/settings.json` nie aus Archiven (Standardvorlage statt Archivinhalt) und verwirft weitere `.vscode/*`-Dateien
 - **Sicherheit (Review):** `unpack` übernimmt `marp.config.mjs` nie aus dem Archiv; `serve`/`export` verweigern abweichende Configs;
   Strings aus der PPTX werden bereinigt; Brand-CSS ohne `@import`/externe URLs; `serve.json` strikt validiert; Symlinks im Brand nicht gefolgt;
   Showcase ohne Reste der Originalfolien (Vorschaubild, Titel, Kommentare, verwaiste Medien), mit Größen- und Eintragsgrenzen
