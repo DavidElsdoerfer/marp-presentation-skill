@@ -2,8 +2,8 @@
 
 Diese Punkte brauchen eine Entscheidung und werden nicht automatisch erledigt.
 
-## Lizenz (blockierend für Nutzung durch Dritte)
-Das Repo ist öffentlich, hat aber keine `LICENSE`. Ohne Lizenz darf niemand den Code nutzen oder weitergeben. Typische Wahl: MIT (kurz, freizügig) oder Apache-2.0 (mit Patentklausel). Beachten: `pptx2marp` (falls als Adapter verwendet) ist Apache-2.0, wird aber nur aufgerufen und nicht eingebunden.
+## Lizenz
+Erledigt: MIT (2026-10-08), siehe `LICENSE`.
 
 ## autarkit-Brand im Git-Verlauf
 Der erste Commit enthält `skill/brands/autarkit/` (Logo-SVG und Farb-Tokens). Aus dem aktuellen Stand ist es entfernt, im Verlauf bleibt es sichtbar (auch in Klonen und Forks). Es sind keine Zugangsdaten oder Kundendaten, nur das Marken-Logo. Entfernen aus dem Verlauf ginge nur per History-Rewrite und Force-Push; das ist bei einem öffentlichen Repo nur begrenzt wirksam (Caches, Forks). Entscheidung: so lassen oder umschreiben.

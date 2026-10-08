@@ -81,3 +81,7 @@ Node (für `npx @marp-team/marp-cli`), Chrome/Chromium (PDF, PNG), Python 3. Opt
 python3 -m unittest discover tests      # Unit-Tests + Render-Test (braucht Chrome, sonst übersprungen)
 tests/compare-themes.sh deck.md alt.css neu.css   # Pixelvergleich bei Theme-Änderungen
 ```
+
+## Lizenz
+
+[MIT](LICENSE). Marken, Logos, Schriften und Vorlagen Dritter, die du als Brand importierst, bleiben deren Eigentum und gehören nicht ins Repo.

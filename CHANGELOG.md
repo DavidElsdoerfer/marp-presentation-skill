@@ -5,6 +5,7 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionier
 ## [Unveröffentlicht]
 
 ### Hinzugefügt
+- MIT-Lizenz (`LICENSE`)
 - `brand import --replace` (Neuimport mit Sicherung, übernimmt `custom.css`, `GUIDELINES.md`, Schriften), `repair-config`, `--trust-config`
 - Sicherung von Handänderungen bei `brand sync` unter `.marp-deck/brand-backup-*`
 - Regressionstests zu allen Review-Befunden (`tests/test_review_findings.py`), Entscheidung 0009
