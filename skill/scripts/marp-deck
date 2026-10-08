@@ -261,7 +261,9 @@ def cmd_new(a):
     print(f"Deck angelegt: {deck}")
     print(f"  Quelle:  {deck / (slug + '.md')}")
     print(f"  Brand:   {theme} (aus {src}; Snapshot in theme/brand/)")
-    print(f"  Vorschau: {Path(sys.argv[0]).name} serve {deck}   oder: Ordner in VS Code öffnen (Marp for VS Code, ohne Einrichtung)")
+    print(f"  Vorschau: {Path(sys.argv[0]).name} serve {deck}")
+    if not getattr(a, "no_vscode", False):
+        auto_register(deck)
 
 
 # ── serve ──────────────────────────────────────────────────────────────────
@@ -663,7 +665,7 @@ def cmd_vscode(a):
         if had_comments:   # Kommentare gingen beim Zurückschreiben verloren: nicht anfassen, Zeilen zum Einfügen ausgeben
             snippet = json.dumps({VSCODE_THEMES_KEY: wanted, VSCODE_HTML_KEY: "all", **VSCODE_DEFAULTS}, indent=4, ensure_ascii=False)
             print(f"{sfile} enthält Kommentare; ich schreibe sie nicht um. Diese Einträge von Hand ergänzen:\n{snippet}")
-            sys.exit(3)
+            return 3
     current = settings.get(VSCODE_THEMES_KEY, [])
     if not isinstance(current, list):
         die(f"{sfile}: {VSCODE_THEMES_KEY} ist keine Liste — nichts verändert")
@@ -694,10 +696,14 @@ def cmd_vscode(a):
     for k, v in VSCODE_DEFAULTS.items():
         new.setdefault(k, v)
     changed = new != settings
-    print(f"{len(decks)} Deck(s) gefunden:")
-    for d in decks:
-        print(f"  {d.relative_to(project) if d != project else '.'}  (Theme '{theme_name(d / 'theme' / 'theme.css')}')")
+    quiet = getattr(a, "quiet", False)
+    if not quiet:
+        print(f"{len(decks)} Deck(s) gefunden:")
+        for d in decks:
+            print(f"  {d.relative_to(project) if d != project else '.'}  (Theme '{theme_name(d / 'theme' / 'theme.css')}')")
     if not changed:
+        if quiet:
+            return 0
         print(f"{sfile}: bereits aktuell.")
     elif a.dry_run:
         print(f"[Probelauf] würde {sfile} ändern: {len(added)} Theme(s) ergänzen" + (", markdown.marp.html auf \"all\" setzen" if html_changed else ""))
@@ -709,7 +715,39 @@ def cmd_vscode(a):
         print(f"{sfile} aktualisiert: {len(added)} Theme(s) ergänzt" + (", markdown.marp.html auf \"all\" gesetzt (nötig für die Komponenten)" if html_changed else "") + ".")
     for n in notes:
         print(f"WARNUNG: {n}", file=sys.stderr)
-    print(f"Hinweis: {project} als Ordner in VS Code öffnen und dem Workspace vertrauen (sonst ignoriert die Erweiterung Themes und HTML).")
+    if not quiet:
+        print(f"Hinweis: {project} als Ordner in VS Code öffnen und dem Workspace vertrauen (sonst ignoriert die Erweiterung Themes und HTML).")
+    return 0
+
+
+def registered_project_for(deck):
+    """Nächster Ordner oberhalb des Decks, dessen .vscode/settings.json bereits Marp-Themes listet (früher mit `marp-deck vscode` angelegt)."""
+    home = Path.home().resolve()
+    for parent in list(deck.resolve().parents)[:8]:
+        if parent == home or parent == parent.parent:
+            break
+        f = parent / ".vscode" / "settings.json"
+        if f.is_file():
+            try:
+                data, _ = parse_jsonc(f.read_text())
+            except ValueError:
+                continue
+            if isinstance(data, dict) and isinstance(data.get(VSCODE_THEMES_KEY), list):
+                return parent
+    return None
+
+
+def auto_register(deck):
+    """Neues Deck im bereits registrierten Projektordner automatisch eintragen; sonst nur ein Hinweis."""
+    project = registered_project_for(deck)
+    if project is None:
+        print(f"  VS Code: Ordner {deck.name} öffnen, oder im Projektordner `marp-deck vscode <projekt>` (einmalig, danach automatisch)")
+        return
+    code = cmd_vscode(argparse.Namespace(project=str(project), dry_run=False, quiet=True))
+    if code == 0:
+        print(f"  VS Code: in {project / '.vscode' / 'settings.json'} eingetragen")
+    else:
+        print(f"  VS Code: {project / '.vscode' / 'settings.json'} enthält Kommentare — Eintrag von Hand: marp-deck vscode {project}")
 
 
 def cmd_import_deck(a):
@@ -882,7 +920,7 @@ def main():
     vs = sp.add_parser("vscode", help="Marp for VS Code: Themes und HTML-Einstellung eintragen")
     vs.add_argument("project", nargs="?")
     vs.add_argument("--dry-run", action="store_true")
-    vs.set_defaults(fn=cmd_vscode)
+    vs.set_defaults(fn=lambda a: sys.exit(cmd_vscode(a) or 0))
 
     ii = sp.add_parser("import-deck", help="bestehende PPTX-Präsentation als Marp-Deck übernehmen (braucht pptx2md)")
     ii.add_argument("file")

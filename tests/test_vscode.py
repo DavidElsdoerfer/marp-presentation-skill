@@ -201,3 +201,36 @@ console.log(/color:\\s*blue/.test(m.render('---\\ntheme: x\\n---\\n# a').css));
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class AutoRegister(Base):
+    def test_new_deck_is_added_when_project_already_registered(self):
+        self.deck("Erster", self.proj / "Präsentationen")
+        self.assertEqual(cli("vscode", self.proj, env=self.env).returncode, 0)
+        r = cli("new", "Zweiter", "--dir", self.proj / "Präsentationen", env=self.env)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("eingetragen", r.stdout)
+        self.assertEqual(sorted(self.settings(self.proj)["markdown.marp.themes"]),
+                         ["Präsentationen/erster/theme/theme.css", "Präsentationen/zweiter/theme/theme.css"])
+
+    def test_no_registration_means_no_project_files_only_a_hint(self):
+        r = cli("new", "Allein", "--dir", self.proj / "Präsentationen", env=self.env)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("marp-deck vscode", r.stdout)
+        self.assertFalse((self.proj / ".vscode").exists())              # kein stilles Anlegen im Projekt
+
+    def test_commented_settings_do_not_break_new(self):
+        self.deck("Basis", self.proj / "p")
+        f = self.proj / ".vscode" / "settings.json"; f.parent.mkdir()
+        original = '{\n  // Notiz\n  "markdown.marp.themes": []\n}\n'
+        f.write_text(original)
+        r = cli("new", "Neu", "--dir", self.proj / "p", env=self.env)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("Kommentare", r.stdout); self.assertEqual(f.read_text(), original)
+
+    def test_does_not_climb_above_home_or_unrelated_projects(self):
+        # Einstellungen in einem NICHT übergeordneten Ordner werden nie angefasst
+        other = self.t / "anderes"; (other / ".vscode").mkdir(parents=True)
+        (other / ".vscode" / "settings.json").write_text('{"markdown.marp.themes": []}')
+        self.assertEqual(cli("new", "Fremd", "--dir", self.proj, env=self.env).returncode, 0)
+        self.assertEqual((other / ".vscode" / "settings.json").read_text(), '{"markdown.marp.themes": []}')
