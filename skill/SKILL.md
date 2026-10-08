@@ -5,27 +5,41 @@ description: Präsentation/Folien als Marp-Deck erstellen, im Browser live anseh
 
 # marp-presentation
 
-Erzeugt Marp-Präsentationen als selbstständigen Ordner. Du schreibst Markdown, der Nutzer sieht das Ergebnis live im Browser und kann dieselbe Datei selbst im Editor ändern.
+Erzeugt Marp-Präsentationen als selbstständigen Ordner. Du schreibst Markdown, der Nutzer sieht das Ergebnis in VS Code (Erweiterung „Marp for VS Code“) oder im Browser und kann dieselbe Datei selbst im Editor ändern. Den Export macht der Nutzer üblicherweise selbst mit der Erweiterung; du kannst ihn auch übernehmen.
 
 Alle Befehle: `scripts/marp-deck …` (Pfad relativ zu diesem Verzeichnis, also zum Ordner dieser `SKILL.md`). Python 3 und Node genügen; für PDF zusätzlich Chrome/Chromium.
 
-## Ablauf bei „Präsentation zu Thema X“
+## Ablauf bei „Präsentation zu Thema X“ (typisch: der Nutzer arbeitet in einem Projekt und braucht eine Präsentation dazu)
 
 1. **Voraussetzungen** (beim ersten Mal): `scripts/marp-deck doctor`. Fehlt etwas Pflichtmäßiges, dem Nutzer sagen und stoppen.
-2. **Brand wählen:** `scripts/marp-deck brand list`. Gibt es genau eine Nutzer-Brand, diese nehmen, sonst nachfragen. `neutral` ist der markenfreie Standard. Hat die Brand eine `GUIDELINES.md` (im Brand-Ordner, Pfad steht in `brand list`), lies sie vor dem Schreiben und halte dich daran.
-3. **Inhalt sammeln:** Projektdateien, README, Doku, Notizen lesen, die zum Thema gehören. Nichts erfinden: fehlende Fakten als Frage an den Nutzer oder als „[offen]“ im Entwurf markieren. Zielgruppe und Dauer erfragen, wenn sie nicht klar sind.
-4. **Deck anlegen:** `scripts/marp-deck new "<Titel>" --brand <name> --dir <ordner>`. Der Ordner enthält Quelle (`<slug>.md`), `marp.config.mjs`, `theme/` und `assets/`; nichts davon muss kopiert werden.
+2. **Rückfragen — gebündelt, vor dem Schreiben.** Eine Nachricht mit allen offenen Punkten, jeweils mit Vorschlag, den der Nutzer nur bestätigen muss. Nur fragen, was du nicht aus dem Projekt ableiten kannst:
+   - **Ziel und Anlass:** Was soll die Präsentation bewirken (informieren, entscheiden lassen, schulen)? Welcher Termin/Rahmen?
+   - **Zielgruppe:** Vorwissen, Rolle, was sie danach tun soll.
+   - **Umfang:** Dauer oder Folienzahl; Detailtiefe.
+   - **Inhalt:** Welche Projektdateien/Quellen gelten, was gehört nicht hinein (vertraulich?), Sprache und Ton.
+   - **Zielordner und Name:** Schau nach, wie das Projekt Präsentationen ablegt (vorhandene Ordner, Namensschema wie `2026-10-05-Workshop`), und schlage Ordner und Namen danach vor. Der Ordnername entsteht sonst klein geschrieben aus dem Titel; `--slug <Name>` legt die Schreibweise fest.
+   - **Brand:** `scripts/marp-deck brand list`. Gibt es genau eine Nutzer-Brand, diese vorschlagen, sonst nachfragen. `neutral` ist der markenfreie Standard. Hat die Brand eine `GUIDELINES.md` (Pfad in `brand list`), lies sie vor dem Schreiben und halte dich daran.
+   - **Ansicht:** VS Code (Standard, wenn der Nutzer VS Code benutzt) oder Browser (`serve`).
+3. **Inhalt sammeln:** Projektdateien, README, Doku, Notizen lesen, die zum Thema gehören. Nichts erfinden: fehlende Fakten als Frage an den Nutzer oder als „[offen]“ im Entwurf markieren.
+4. **Deck anlegen:** `scripts/marp-deck new "<Titel>" --brand <name> --dir <zielordner> [--slug <Name>]`. Der Ordner enthält Quelle (`<slug>.md`), `marp.config.mjs`, `theme/`, `assets/` und `.vscode/settings.json`; nichts davon muss kopiert werden. **Lies die Ausgabe von `new`:** Steht dort „VS Code: … eingetragen“, ist das Projekt schon für die Erweiterung registriert. Steht dort ein Hinweis auf `marp-deck vscode <projekt>`, ist es das erste Deck in diesem Projekt: sag dem Nutzer, dass dieser einmalige Befehl `<projekt>/.vscode/settings.json` ergänzt (Sicherung, ändert nichts anderes), und führe ihn nach seinem Ja aus.
 5. **Entwurf schreiben:** die `<slug>.md` des Decks bearbeiten (Regeln unten).
-6. **Vorschau öffnen:** `scripts/marp-deck serve <deck>` startet den Server im Hintergrund und nennt die URL. Dem Nutzer die URL geben bzw. im Browser öffnen. Die Seite lädt bei jeder Änderung der `.md` von selbst nach.
-7. **Iterieren:** auf Anweisungen des Nutzers die `.md` ändern. Der Nutzer darf dieselbe Datei parallel in seinem Editor bearbeiten:
+6. **Ansicht übergeben:**
+   - **VS Code:** Sag dem Nutzer, welche Datei er öffnen soll (`<zielordner>/<slug>/<slug>.md`) und dass er die Marp-Vorschau öffnet (Vorschau-Symbol oben rechts im Editor) und dem Workspace vertraut, falls VS Code danach fragt; sonst fehlen Theme und Komponenten.
+   - **Browser:** `scripts/marp-deck serve <deck>` startet den Server im Hintergrund und nennt die URL; die Seite lädt bei jeder Änderung der `.md` nach.
+   Fasse kurz zusammen: Pfad, Folienzahl, welche Annahmen du getroffen hast und was mit „[offen]“ markiert ist.
+7. **Feinschliff gemeinsam:** auf Anweisungen des Nutzers die `.md` ändern. Der Nutzer darf dieselbe Datei parallel im Editor bearbeiten:
    - Vor jeder Änderung die Datei **neu lesen**, nie aus dem Gedächtnis überschreiben.
    - Nur gezielte Änderungen (Edit), nie die ganze Datei neu schreiben.
-   - Änderungen des Nutzers nicht zurücknehmen.
-8. **Exportieren**, wenn gewünscht:
-   - `scripts/marp-deck export pdf <deck>` → `dist/<slug>.pdf` (mit Notizen und Gliederung)
-   - `scripts/marp-deck export html <deck>` → `dist/<slug>.html`, eine einzige Datei zum Präsentieren; Taste `P` öffnet die Presenter View
+   - Änderungen des Nutzers nicht zurücknehmen. Hat der Nutzer ungespeicherte Änderungen im Editor, kann die Datei auf der Platte veraltet sein: im Zweifel bitten, vorher zu speichern.
+8. **Export:** üblicherweise durch den Nutzer mit der Erweiterung (Befehl „Marp: Export Slide Deck…“; PDF, HTML, PPTX). Weise darauf hin:
+   - Die Erweiterung exportiert **HTML mit lokalen Bildern als Dateiverweisen**: die HTML-Datei nur zusammen mit `assets/` weitergeben. Für **eine einzige, portable HTML-Datei** (mit eingebetteten Bildern, Presenter View über Taste `P`) `scripts/marp-deck export html <deck>` nutzen.
+   - PDF der Erweiterung enthält Notizen und Gliederung (in `.vscode/settings.json` gesetzt).
+   - Exportdateien am besten nach `<deck>/dist/` legen (wird nicht versioniert).
+   Auf Wunsch exportierst du selbst:
+   - `scripts/marp-deck export pdf <deck>` → `dist/<slug>.pdf`
+   - `scripts/marp-deck export html <deck>` → `dist/<slug>.html`
    - `scripts/marp-deck export pptx <deck>`: nur Bilder der Folien, **nicht editierbar**; nur auf ausdrücklichen Wunsch
-9. **Aufräumen:** `scripts/marp-deck serve <deck> --stop`, wenn der Nutzer fertig ist.
+9. **Aufräumen:** `scripts/marp-deck serve <deck> --stop`, falls du einen Server gestartet hast.
 
 ## Folien schreiben
 
