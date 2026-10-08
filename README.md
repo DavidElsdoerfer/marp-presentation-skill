@@ -43,6 +43,7 @@ Eigene Brands liegen im Brand-Store `~/.config/marp-presentation/brands/<name>/`
 ## Benutzung
 
 ```bash
+skill/scripts/marp-deck suggest "Mein Titel"               # Zielordner und Namen vorschlagen (schreibt nichts)
 skill/scripts/marp-deck new "Mein Titel" --brand neutral   # Deck-Ordner mit Quelle, Config, Theme-Snapshot
 skill/scripts/marp-deck serve mein-titel                   # Live-Vorschau im Browser (nur localhost)
 skill/scripts/marp-deck export pdf mein-titel              # dist/mein-titel.pdf (mit Notizen, Gliederung)

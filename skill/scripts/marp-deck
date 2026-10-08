@@ -5,6 +5,7 @@
   marp-deck serve [DECK] [--port N] [--stop]
   marp-deck export pdf|html|pptx [DECK] [-o DATEI]
   marp-deck import-deck DATEI.pptx [--brand NAME] [--title T] [--dir ORDNER] [--tool PFAD]   (optional, braucht pptx2md)
+  marp-deck suggest TITEL [--project ORDNER] [--date JJJJ-MM-TT] [--json]   (Zielordner und Namen vorschlagen, schreibt nichts)
   marp-deck vscode [PROJEKT] [--dry-run]       (Marp for VS Code: Themes und HTML-Einstellung eintragen)
   marp-deck pack [DECK] [-o DATEI.deck] [--force]
   marp-deck unpack DATEI.deck [--dir ORDNER]
@@ -139,8 +140,9 @@ def yaml_text(text):
     return json.dumps(" ".join(str(text).split()), ensure_ascii=False)
 
 
-def slugify(title):
-    s = unicodedata.normalize("NFC", title).lower().strip()
+def slugify(title, lower=True):
+    s = unicodedata.normalize("NFC", title).strip()
+    s = s.lower() if lower else s
     s = re.sub(r"\s+", "-", s)
     s = re.sub(r"[^\w\-]", "", s, flags=re.UNICODE).replace("_", "-")
     s = re.sub(r"-{2,}", "-", s).strip("-")
@@ -589,6 +591,91 @@ def _load(name):
     return mod
 
 
+# ── suggest ────────────────────────────────────────────────────────────────
+
+DATE_PREFIX = re.compile(r"^(\d{4})-(\d{2})-(\d{2})[-_ ]")
+DECK_DIR_NAMES = ("presentations", "praesentationen", "präsentationen", "slides", "decks", "talks", "vortraege", "vorträge",
+                  "workshops", "folien")
+
+
+def project_root(start):
+    """Projektwurzel: nächster Ordner mit .git oberhalb von start, sonst start selbst (nie oberhalb des Home-Ordners)."""
+    start = Path(start).resolve()
+    home = Path.home().resolve()
+    for p in [start, *start.parents]:
+        if (p / ".git").exists():
+            return p
+        if p == home or p == p.parent:
+            break
+    return start
+
+
+def suggest(title, project=None, date=None):
+    root = project_root(project or Path.cwd())
+    decks = list(find_decks(root, max_depth=6))
+    reasons, alternatives = [], []
+    target_dir = None
+    if decks:
+        from collections import Counter
+        count = Counter(d.parent for d in decks)
+        newest = {p: max(d.stat().st_mtime for d in decks if d.parent == p) for p in count}
+        target_dir = sorted(count, key=lambda p: (-count[p], -newest[p]))[0]
+        reasons.append(f"{count[target_dir]} vorhandene(s) Deck(s) liegen bereits in {target_dir.relative_to(root) if target_dir != root else '.'}")
+        alternatives = [p for p in sorted(count, key=lambda p: (-count[p], -newest[p]))[1:4]]
+    else:
+        for p in sorted(root.rglob("*"), key=lambda p: len(p.parts)):
+            if p.is_dir() and p.name.lower() in DECK_DIR_NAMES and not any(x in {"node_modules", ".git", "dist"} for x in p.parts):
+                if len(p.relative_to(root).parts) <= 3:
+                    target_dir = p
+                    reasons.append(f"Ordner „{p.relative_to(root)}“ existiert und passt zum Zweck")
+                    break
+        if target_dir is None:
+            target_dir = root / "presentations"
+            reasons.append("kein Präsentationsordner gefunden: neuer Ordner „presentations“ in der Projektwurzel (wird beim Anlegen erzeugt)")
+
+    # Namensschema aus vorhandenen Decks ableiten: Datumspräfix, Groß-/Kleinschreibung
+    names = [d.name for d in decks if d.parent == target_dir] or [d.name for d in decks]
+    dated = [n for n in names if DATE_PREFIX.match(n)]
+    use_date = bool(dated) and len(dated) * 2 >= len(names)
+    keep_case = any(re.search(r"[A-ZÄÖÜ]", DATE_PREFIX.sub("", n)) for n in names)
+    today = date or time.strftime("%Y-%m-%d")
+    if not re.match(r"^\d{4}-\d{2}-\d{2}$", today):
+        die(f"--date: JJJJ-MM-TT erwartet, nicht {today!r}")
+    core = slugify(title, lower=not keep_case) or "praesentation"
+    slug = f"{today}-{core}" if use_date else core
+    if names:
+        reasons.append("Namensschema aus vorhandenen Decks: " + ("Datum-Präfix, " if use_date else "ohne Datum, ") +
+                       ("Großschreibung bleibt erhalten" if keep_case else "kleingeschrieben"))
+    else:
+        reasons.append("kein Schema ableitbar: Titel in Kleinbuchstaben (mit --date und Präfix selbst festlegen, falls gewünscht)")
+    base, n = slug, 2
+    while (target_dir / slug).exists():
+        slug = f"{base}-{n}"; n += 1
+    if slug != base:
+        reasons.append(f"„{base}“ existiert bereits: {slug}")
+    return {"project": str(root), "dir": str(target_dir), "slug": slug, "path": str(target_dir / slug), "reasons": reasons,
+            "creates_dir": not target_dir.exists(), "alternatives": [str(a) for a in alternatives],
+            "command": f'marp-deck new "{title}" --dir "{target_dir}" --slug "{slug}"'}
+
+
+def cmd_suggest(a):
+    title = " ".join(a.title).strip()
+    if not title:
+        die("Titel angeben")
+    res = suggest(title, a.project, a.date)
+    if a.json:
+        print(json.dumps(res, indent=2, ensure_ascii=False))
+        return
+    rel = lambda p: os.path.relpath(p, res["project"])
+    print(f"Vorschlag: {rel(res['path'])}/")
+    print(f"  Projekt:  {res['project']}")
+    for r in res["reasons"]:
+        print(f"  - {r}")
+    if res["alternatives"]:
+        print("  Andere Ablageorte mit Decks: " + ", ".join(rel(p) for p in res["alternatives"]))
+    print(f"  Anlegen mit: {res['command']}")
+
+
 # ── vscode ─────────────────────────────────────────────────────────────────
 
 def parse_jsonc(text):
@@ -916,6 +1003,13 @@ def main():
     b.add_argument("--map", action="append", default=[]); b.add_argument("--no-render", action="store_true")
     b.add_argument("--replace", action="store_true", help="vorhandenen Brand ersetzen (alter wird gesichert, custom.css/GUIDELINES.md/fonts bleiben)")
     b.set_defaults(fn=lambda a: (setattr(a, "deck", a.target), cmd_brand(a)))
+
+    sg = sp.add_parser("suggest", help="Zielordner und Namen für ein neues Deck vorschlagen (schreibt nichts)")
+    sg.add_argument("title", nargs="+")
+    sg.add_argument("--project")
+    sg.add_argument("--date")
+    sg.add_argument("--json", action="store_true")
+    sg.set_defaults(fn=cmd_suggest)
 
     vs = sp.add_parser("vscode", help="Marp for VS Code: Themes und HTML-Einstellung eintragen")
     vs.add_argument("project", nargs="?")
