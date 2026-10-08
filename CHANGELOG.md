@@ -5,6 +5,7 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionier
 ## [Unveröffentlicht]
 
 ### Hinzugefügt
+- `docs/prototypes/pptx-export/`: lauffähiger Prototyp (Marp → JSON-Modell → PPTX auf den Layouts der Vorlage) mit dem gesammelten technischen Wissen für M6
 - Roadmap M6 und Entscheidung 0011: editierbarer PPTX-Export als optionales Feature (zurückgestellt, Konzept am Prototyp geprüft)
 - `marp-deck suggest`: schlägt Zielordner und Namen für ein neues Deck vor (vorhandene Decks, Präsentationsordner, Namensschema, Datum-Präfix; schreibt nichts)
 - `marp-deck new` (auch `import-deck`, `brand preview`) trägt neue Decks automatisch in die Projekt-Einstellungen ein, wenn dort schon Marp-Themes registriert sind
