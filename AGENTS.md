@@ -1,5 +1,7 @@
 # AGENTS.md — marp-presentation-skill
 
+**Zuerst `STATUS.md` lesen** (Stand, ungeprüfte Bereiche, Entscheidungen des Autors).
+
 Gilt für Claude Code, opencode und andere Agenten. `CLAUDE.md` verweist hierher.
 
 ## Zweck

@@ -8,7 +8,7 @@ Claude-Code-/opencode-Skill für Marp-Präsentationen mit austauschbarer Brand (
 - Sauberer PDF-Export und HTML-Export mit Presenter View.
 - Brands aus PPTX-Folienmastern importieren (Farben, Schriften, Logos, Layouts).
 
-**Status:** in Entwicklung. Siehe [ROADMAP.md](ROADMAP.md) und [CHANGELOG.md](CHANGELOG.md).
+**Status:** siehe [STATUS.md](STATUS.md) (was geprüft ist und was nicht), [ROADMAP.md](ROADMAP.md) und [CHANGELOG.md](CHANGELOG.md).
 
 ## Aufbau
 
