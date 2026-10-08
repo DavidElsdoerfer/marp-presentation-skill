@@ -5,6 +5,7 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionier
 ## [Unveröffentlicht]
 
 ### Hinzugefügt
+- `marp-deck suggest`: schlägt Zielordner und Namen für ein neues Deck vor (vorhandene Decks, Präsentationsordner, Namensschema, Datum-Präfix; schreibt nichts)
 - `marp-deck new` (auch `import-deck`, `brand preview`) trägt neue Decks automatisch in die Projekt-Einstellungen ein, wenn dort schon Marp-Themes registriert sind
 - Integration mit Marp for VS Code: jedes Deck bringt `.vscode/settings.json` mit; `marp-deck vscode` trägt Themes mehrerer Decks in Projekt-Einstellungen ein (`docs/vscode.md`, Entscheidung 0010, `tests/test_vscode.py`)
 - `STATUS.md` (Stand, ungeprüfte Bereiche, Ablauf für den Firmenrechner); Entscheidungen vom 2026-10-08 in `docs/open-questions.md`
